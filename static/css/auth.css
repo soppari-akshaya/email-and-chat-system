@@ -1,0 +1,39 @@
+/* ConnectHub Authentication Styles */
+
+.auth-page-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: linear-gradient(135deg, #f7f6fd 0%, #e9e6fa 100%);
+}
+
+.auth-card-container {
+    width: 100%;
+    max-width: 480px;
+    background: #ffffff;
+    border-radius: 22px;
+    padding: 40px;
+    box-shadow: 0 15px 35px rgba(118, 101, 217, 0.12);
+    border: 1px solid #eeecf8;
+}
+
+.google-auth-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    border-radius: 12px;
+    padding: 10px 16px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    transition: all 0.2s ease;
+}
+
+.google-auth-btn:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+

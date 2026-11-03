@@ -1,7 +1,7 @@
 import os
 import uuid
 from urllib.parse import urlparse
-from flask import render_template, redirect, url_for, flash, request, current_app, send_from_directory, abort
+from flask import render_template, redirect, url_for, flash, request, current_app, send_from_directory, abort, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.utils import secure_filename
 from sqlalchemy import func, or_
@@ -162,6 +162,11 @@ def profile():
         # Notification preferences
         prefs = request.form.getlist("notifications")
         current_user.profile.notification_preferences = ",".join(prefs) if prefs else "none"
+        current_user.profile.desktop_notifications_enabled = "desktop" in prefs
+        current_user.profile.email_notifications_enabled = "email" in prefs
+        current_user.profile.private_chat_notifications_enabled = "chat" in prefs
+        current_user.profile.group_chat_notifications_enabled = "group" in prefs or "chat" in prefs
+        current_user.profile.sound_enabled = "sound" in prefs
 
         # Avatar upload
         image_updated = False
@@ -211,7 +216,17 @@ def profile():
     conversations_count = ConversationMember.query.filter_by(user_id=current_user.id).count()
     messages_sent_count = ChatMessage.query.filter_by(sender_id=current_user.id, is_deleted=False).count()
 
-    current_prefs = (current_user.profile.notification_preferences or "email,chat,sound").split(",")
+    current_prefs = []
+    if current_user.profile.wants_desktop_notifs():
+        current_prefs.append("desktop")
+    if current_user.profile.wants_email_notifs():
+        current_prefs.append("email")
+    if current_user.profile.wants_chat_notifs():
+        current_prefs.append("chat")
+    if current_user.profile.wants_group_notifs():
+        current_prefs.append("group")
+    if current_user.profile.wants_sound():
+        current_prefs.append("sound")
 
     return render_template(
         "auth/profile.html",
@@ -318,3 +333,130 @@ def profile_image(user_id):
     ext = user.profile.profile_image.rsplit(".", 1)[-1].lower() if "." in user.profile.profile_image else "png"
     mime = f"image/{ext}" if ext in ["png", "jpg", "jpeg", "gif", "webp"] else "application/octet-stream"
     return send_file(BytesIO(file_bytes), mimetype=mime)
+
+
+# --------------------------------------------------
+# FIREBASE AUTHENTICATION (FORGOT PASSWORD & GOOGLE SIGN-IN)
+# --------------------------------------------------
+
+@auth_bp.route("/firebase-config", methods=["GET"])
+def firebase_config():
+    """Return public Firebase web configuration for client-side JavaScript SDK."""
+    from auth_module.firebase_service import get_firebase_client_config
+    return jsonify(get_firebase_client_config())
+
+
+@auth_bp.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    """Handle password reset requests via Firebase Authentication."""
+    if current_user.is_authenticated:
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        if not email or "@" not in email:
+            flash("Please provide a valid registered email address.", "danger")
+            return render_template("auth/forgot_password.html")
+
+        # Security best practice: generic confirmation prevents user enumeration
+        flash("If an account with that email exists, password reset instructions have been sent. Please check your inbox and spam folders.", "success")
+        return render_template("auth/forgot_password.html", email_sent=True)
+
+    return render_template("auth/forgot_password.html")
+
+
+@auth_bp.route("/google-login", methods=["POST"])
+def google_login():
+    """
+    Authenticate or register users via Google Sign-In using Firebase Authentication.
+    Verifies the Firebase ID token cryptographically on the Flask backend.
+    """
+    data = request.get_json(silent=True) or {}
+    id_token = data.get("id_token")
+    if not id_token:
+        return jsonify({"success": False, "error": "Missing Firebase ID token."}), 400
+
+    from auth_module.firebase_service import verify_firebase_id_token
+    user_info = verify_firebase_id_token(id_token)
+    if not user_info:
+        return jsonify({"success": False, "error": "Unable to verify Google credentials. Please try again."}), 401
+
+    email = user_info.get("email", "").strip().lower()
+    if not email:
+        return jsonify({"success": False, "error": "No verified email associated with this Google account."}), 400
+
+    user = User.query.filter(func.lower(func.trim(User.email)) == email).first()
+
+    if not user:
+        # Create a new user account linked with Google Authentication
+        import re
+        import secrets
+
+        raw_name = (user_info.get("name") or email.split("@")[0]).strip()
+        cleaned = re.sub(r"[^a-zA-Z0-9_]", "", raw_name) or "user"
+        username = cleaned
+        counter = 1
+        while User.query.filter(func.lower(User.username) == username.lower()).first():
+            username = f"{cleaned}{counter}"
+            counter += 1
+
+        user = User(
+            username=username,
+            email=email,
+            role="user",
+            is_active=True,
+            is_verified=True,
+            online_status="online"
+        )
+        user.set_password(secrets.token_urlsafe(32))
+        user.profile = UserProfile(
+            full_name=user_info.get("name") or username,
+            bio="Joined via Google Authentication",
+            google_id=user_info.get("uid")
+        )
+        db.session.add(user)
+        db.session.commit()
+
+        # Notify active sessions of new registered user
+        try:
+            from extensions import socketio
+            socketio.emit(
+                "new_user_registered",
+                {
+                    "id": user.id,
+                    "user_id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "online_status": "online",
+                    "avatar_url": user_info.get("picture")
+                }
+            )
+        except Exception:
+            pass
+    else:
+        if not user.is_active:
+            return jsonify({"success": False, "error": "Your account is currently inactive. Contact administrator."}), 403
+
+        user.online_status = "online"
+        from auth_module.models import utc_now
+        user.last_seen = utc_now()
+        if not user.profile:
+            user.profile = UserProfile(user_id=user.id, full_name=user.username)
+        if user_info.get("uid") and not user.profile.google_id:
+            user.profile.google_id = user_info.get("uid")
+        db.session.commit()
+
+    from extensions import socketio
+    socketio.emit(
+        "user_status",
+        {
+            "user_id": user.id,
+            "username": user.username,
+            "status": "online"
+        }
+    )
+
+    login_user(user, remember=True)
+    flash(f"Welcome back, {user.username}!", "success")
+    return jsonify({"success": True, "redirect_url": url_for("dashboard")})
+

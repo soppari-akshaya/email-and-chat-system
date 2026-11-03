@@ -220,6 +220,21 @@ def send_email(sender, recipient_email, subject, body, attachment_files=None, la
             },
             to=f"user_{recipient.id}"
         )
+
+        # Trigger Web Push for background delivery
+        try:
+            from notification_module.webpush_service import send_web_push
+            user_profile = getattr(recipient, "profile", None)
+            if user_profile is None or (user_profile.desktop_notifications_enabled and user_profile.email_notifications_enabled):
+                send_web_push(
+                    user_id=recipient.id,
+                    title=f"New Email: {subject[:50]}",
+                    body=f"From {sender.username}: {(inbox_email.body or '')[:80]}",
+                    url=f"/email/view/{inbox_email.id}",
+                    tag=f"email-{inbox_email.id}"
+                )
+        except Exception as push_err:
+            current_app.logger.warning(f"WebPush email notification notice: {push_err}")
     except Exception as e:
         current_app.logger.warning(f"Real-time email socket emission error: {e}")
 

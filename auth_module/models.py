@@ -72,7 +72,57 @@ class UserProfile(db.Model):
     profile_image = db.Column(db.String(255), nullable=True)
     notification_preferences = db.Column(db.String(255), default="email,chat,sound", nullable=True)
 
+    # Granular Persistent Notification Settings
+    desktop_notifications_enabled = db.Column(db.Boolean, default=True, nullable=True)
+    email_notifications_enabled = db.Column(db.Boolean, default=True, nullable=True)
+    private_chat_notifications_enabled = db.Column(db.Boolean, default=True, nullable=True)
+    group_chat_notifications_enabled = db.Column(db.Boolean, default=True, nullable=True)
+    sound_enabled = db.Column(db.Boolean, default=True, nullable=True)
+
+    # Google Authentication UID Linking
+    google_id = db.Column(db.String(128), nullable=True, index=True)
+
     created_at = db.Column(db.DateTime(timezone=True), default=utc_now)
+
+    def wants_desktop_notifs(self):
+        return self.desktop_notifications_enabled is not False
+
+    def wants_email_notifs(self):
+        return self.email_notifications_enabled is not False
+
+    def wants_chat_notifs(self):
+        return self.private_chat_notifications_enabled is not False
+
+    def wants_group_notifs(self):
+        return self.group_chat_notifications_enabled is not False
+
+    def wants_sound(self):
+        return self.sound_enabled is not False
+
+    def get_notification_preferences_list(self):
+        prefs = []
+        if self.desktop_notifications_enabled is not False:
+            prefs.append("desktop")
+        if self.email_notifications_enabled is not False:
+            prefs.append("email")
+        if self.private_chat_notifications_enabled is not False:
+            prefs.append("private_chat")
+        if self.group_chat_notifications_enabled is not False:
+            prefs.append("group_chat")
+        if self.sound_enabled is not False:
+            prefs.append("sound")
+        return prefs
+
+    def set_notification_preferences(self, prefs_list):
+        if isinstance(prefs_list, str):
+            prefs_list = [p.strip() for p in prefs_list.split(",") if p.strip()]
+        prefs_set = set(prefs_list or [])
+        self.desktop_notifications_enabled = ("desktop" in prefs_set or "desktop_notifications" in prefs_set)
+        self.email_notifications_enabled = ("email" in prefs_set or "email_notifications" in prefs_set)
+        self.private_chat_notifications_enabled = ("private_chat" in prefs_set or "chat" in prefs_set)
+        self.group_chat_notifications_enabled = ("group_chat" in prefs_set or "chat" in prefs_set)
+        self.sound_enabled = ("sound" in prefs_set or "sound_enabled" in prefs_set)
+        self.notification_preferences = ",".join(self.get_notification_preferences_list())
 
 
 @login_manager.user_loader

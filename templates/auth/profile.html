@@ -193,29 +193,86 @@
                                 </div>
                             </div>
 
+                            <!-- NOTIFICATION PREFERENCES & DESKTOP NOTIFICATIONS -->
                             <div class="col-12">
-                                <label class="form-label d-block">Notification Preferences</label>
-                                <div class="d-flex flex-wrap gap-4 mt-1">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="notifications" value="email" id="notifEmail"
-                                               {% if 'email' in current_prefs %}checked{% endif %}>
-                                        <label class="form-check-label" for="notifEmail">
-                                            Email Notifications
-                                        </label>
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <label class="form-label fw-semibold mb-0">Windows Desktop & In-App Notifications</label>
+                                    <span id="notifPermissionStatus" class="badge bg-secondary-subtle text-secondary px-3 py-1">
+                                        Checking...
+                                    </span>
+                                </div>
+
+                                <div class="p-3 border rounded-3 bg-light mb-3">
+                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-3 border-bottom">
+                                        <div>
+                                            <div class="fw-semibold text-dark" style="font-size: 13.5px;">Native Windows Desktop Alerts</div>
+                                            <div class="text-muted small">Show real-time toast alerts via Windows Action Center even when working in another application.</div>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.ConnectHubNotifications && window.ConnectHubNotifications.requestPermission()">
+                                                <i class="bi bi-bell me-1"></i> Request Permission
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-primary" onclick="window.ConnectHubNotifications && window.ConnectHubNotifications.test()">
+                                                <i class="bi bi-play-fill me-1"></i> Test Desktop Alert
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="notifications" value="chat" id="notifChat"
-                                               {% if 'chat' in current_prefs %}checked{% endif %}>
-                                        <label class="form-check-label" for="notifChat">
-                                            Chat Message Alerts
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="notifications" value="sound" id="notifSound"
-                                               {% if 'sound' in current_prefs %}checked{% endif %}>
-                                        <label class="form-check-label" for="notifSound">
-                                            Play Sound on Message
-                                        </label>
+
+                                    <div class="row g-3">
+                                        <div class="col-sm-6">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="notifications" value="desktop" id="notifDesktop"
+                                                       {% if 'desktop' in current_prefs %}checked{% endif %}>
+                                                <label class="form-check-label fw-medium" for="notifDesktop">
+                                                    Enable Desktop Notifications
+                                                </label>
+                                                <div class="text-muted small">Show Windows OS notifications</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-sm-6">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="notifications" value="email" id="notifEmail"
+                                                       {% if 'email' in current_prefs %}checked{% endif %}>
+                                                <label class="form-check-label fw-medium" for="notifEmail">
+                                                    Email Notifications
+                                                </label>
+                                                <div class="text-muted small">Notify when new emails are received</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-sm-6">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="notifications" value="private_chat" id="notifPrivateChat"
+                                                       {% if 'private_chat' in current_prefs or 'chat' in current_prefs %}checked{% endif %}>
+                                                <label class="form-check-label fw-medium" for="notifPrivateChat">
+                                                    1-to-1 Chat Notifications
+                                                </label>
+                                                <div class="text-muted small">Alerts for direct messages</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-sm-6">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="notifications" value="group_chat" id="notifGroupChat"
+                                                       {% if 'group_chat' in current_prefs or 'chat' in current_prefs %}checked{% endif %}>
+                                                <label class="form-check-label fw-medium" for="notifGroupChat">
+                                                    Group Chat Notifications
+                                                </label>
+                                                <div class="text-muted small">Alerts for team / group messages</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-sm-6">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="notifications" value="sound" id="notifSound"
+                                                       {% if 'sound' in current_prefs %}checked{% endif %}>
+                                                <label class="form-check-label fw-medium" for="notifSound">
+                                                    Play Notification Sound
+                                                </label>
+                                                <div class="text-muted small">Audio chime on new message</div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

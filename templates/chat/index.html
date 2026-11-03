@@ -361,7 +361,7 @@
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
 <script>
-    const currentUserId = {{ current_user.id }};
+    const currentUserId = Number(document.body.dataset.userId || 0);
 
     function escapeHtml(str) {
         if (!str) return '';

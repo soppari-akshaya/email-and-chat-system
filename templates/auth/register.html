@@ -116,6 +116,24 @@
         </button>
     </form>
 
+    <div class="d-flex align-items-center my-3">
+        <hr class="flex-grow-1 my-0 text-muted">
+        <span class="px-2 text-muted small fw-semibold" style="font-size: 11px;">OR</span>
+        <hr class="flex-grow-1 my-0 text-muted">
+    </div>
+
+    <div id="googleAuthAlert" class="alert alert-danger d-none small py-2 rounded-3 mb-3" role="alert"></div>
+
+    <button type="button" class="btn btn-outline-secondary w-100 py-2 d-flex align-items-center justify-content-center gap-2 mb-3 shadow-2xs" id="btnGoogleAuth" onclick="handleGoogleSignIn()">
+        <svg width="18" height="18" viewBox="0 0 18 18">
+            <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/>
+            <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+            <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/>
+            <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+        </svg>
+        <span class="fw-medium text-dark" style="font-size: 13.5px;">Continue with Google</span>
+    </button>
+
     <div class="text-center pt-2 border-top text-muted" style="font-size: 13.5px;">
         Already have an account?
         <a href="{{ url_for('auth.login') }}" class="fw-semibold text-primary">Log in here</a>
@@ -124,5 +142,86 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
+<script>
+    let firebaseAuth = null;
+    let googleProvider = null;
+
+    async function initFirebase() {
+        try {
+            const resp = await fetch("/auth/firebase-config");
+            const config = await resp.json();
+            if (config && config.apiKey && config.projectId) {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(config);
+                }
+                firebaseAuth = firebase.auth();
+                googleProvider = new firebase.auth.GoogleAuthProvider();
+                googleProvider.addScope("profile");
+                googleProvider.addScope("email");
+            }
+        } catch (e) {
+            console.warn("Firebase client configuration notice:", e);
+        }
+    }
+
+    initFirebase();
+
+    async function handleGoogleSignIn() {
+        const btn = document.getElementById("btnGoogleAuth");
+        const alertBox = document.getElementById("googleAuthAlert");
+        alertBox.classList.add("d-none");
+
+        if (!firebaseAuth || !googleProvider) {
+            alertBox.textContent = "Google Sign-In is initializing or requires Firebase credentials in your environment. Please register with your email and password or configure FIREBASE_API_KEY.";
+            alertBox.classList.remove("d-none");
+            return;
+        }
+
+        btn.disabled = true;
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm text-primary" role="status"></span> <span class="ms-2">Connecting to Google...</span>`;
+
+        try {
+            const result = await firebaseAuth.signInWithPopup(googleProvider);
+            const idToken = await result.user.getIdToken();
+
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm text-primary" role="status"></span> <span class="ms-2">Setting up account...</span>`;
+
+            const csrfToken = document.querySelector('input[name="csrf_token"]') ? document.querySelector('input[name="csrf_token"]').value : '';
+
+            const resp = await fetch("/auth/google-login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken
+                },
+                body: JSON.stringify({ id_token: idToken })
+            });
+
+            const data = await resp.json();
+            if (data.success) {
+                window.location.href = data.redirect_url || "/dashboard";
+            } else {
+                alertBox.textContent = data.error || "Authentication failed. Please try again.";
+                alertBox.classList.remove("d-none");
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        } catch (err) {
+            console.error("Google Auth error:", err);
+            if (err.code !== "auth/popup-closed-by-user" && err.code !== "auth/cancelled-popup-request") {
+                alertBox.textContent = err.message || "An error occurred during Google Sign-In.";
+                alertBox.classList.remove("d-none");
+            }
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+</script>
 </body>
 </html>

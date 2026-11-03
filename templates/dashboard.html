@@ -157,23 +157,26 @@
                     {% if recent_emails %}
                         <div class="list-group list-group-flush">
                             {% for mail in recent_emails %}
+                                {% set sender_label = (mail.sender.username if mail.sender else 'User') or 'User' %}
+                                {% set sender_initial = sender_label[:1]|upper %}
+                                {% set mail_date = mail.created_at.strftime('%d %b') if mail.created_at else '' %}
                                 <a href="{{ url_for('email.view_email', email_id=mail.id) }}"
                                    class="list-group-item list-group-item-action px-0 py-2 d-flex align-items-center justify-content-between border-0">
                                     <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
                                         <div class="user-avatar" style="width: 28px; height: 28px; font-size: 11px;">
-                                            {{ ((mail.sender.username if mail.sender else 'U') or 'U')[:1]|upper }}
+                                            {{ sender_initial }}
                                         </div>
                                         <div class="overflow-hidden">
                                             <div class="text-truncate fw-semibold {% if not mail.is_read %}text-primary{% else %}text-dark{% endif %}" style="font-size: 13px;">
                                                 {{ mail.subject or '(No Subject)' }}
                                             </div>
                                             <div class="text-muted text-truncate" style="font-size: 11px;">
-                                                {{ (mail.sender.username if mail.sender else 'User') or 'User' }} &bull; {{ mail.body[:40] if mail.body else '' }}
+                                                {{ sender_label }} &bull; {{ mail.body[:40] if mail.body else '' }}
                                             </div>
                                         </div>
                                     </div>
                                     <span class="text-muted small text-nowrap" style="font-size: 11px;">
-                                        {{ mail.created_at.strftime('%d %b') if mail.created_at else '' }}
+                                        {{ mail_date }}
                                     </span>
                                 </a>
                             {% endfor %}
@@ -222,10 +225,21 @@
                                     {% set partner.name = conv.name or 'Group Chat' %}
                                 {% endif %}
 
-                                <a href="{% if conv.is_group %}{{ url_for('chat.group_chat', conversation_id=conv.id) }}{% elif partner.user_id %}{{ url_for('chat.private_chat', user_id=partner.user_id) }}{% else %}{{ url_for('chat.index') }}{% endif %}"
+                                {% if conv.is_group %}
+                                    {% set conv_url = url_for('chat.group_chat', conversation_id=conv.id) %}
+                                    {% set conv_bg = '#0ea5e9' %}
+                                {% elif partner.user_id %}
+                                    {% set conv_url = url_for('chat.private_chat', user_id=partner.user_id) %}
+                                    {% set conv_bg = 'var(--primary)' %}
+                                {% else %}
+                                    {% set conv_url = url_for('chat.index') %}
+                                    {% set conv_bg = 'var(--primary)' %}
+                                {% endif %}
+
+                                <a href="{{ conv_url }}"
                                    class="list-group-item list-group-item-action px-0 py-2 d-flex align-items-center justify-content-between border-0">
                                     <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
-                                        <div class="user-avatar" style="width: 28px; height: 28px; font-size: 11px; background: {% if conv.is_group %}#0ea5e9{% else %}var(--primary){% endif %};">
+                                        <div class="user-avatar" style="width: 28px; height: 28px; font-size: 11px; background: {{ conv_bg }};">
                                             {% if conv.is_group %}
                                                 <i class="bi bi-people-fill"></i>
                                             {% else %}

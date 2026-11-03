@@ -57,3 +57,30 @@ class Config:
     WTF_CSRF_TIME_LIMIT = 3600
     WTF_CSRF_SSL_STRICT = False
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", os.path.join(BASE_DIR, "uploads"))
+
+    # --------------------------------------------------
+    # FIREBASE AUTHENTICATION CONFIGURATION
+    # --------------------------------------------------
+    FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY", "")
+    FIREBASE_AUTH_DOMAIN = os.getenv("FIREBASE_AUTH_DOMAIN", "")
+    FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "")
+    FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET", "")
+    FIREBASE_MESSAGING_SENDER_ID = os.getenv("FIREBASE_MESSAGING_SENDER_ID", "")
+    FIREBASE_APP_ID = os.getenv("FIREBASE_APP_ID", "")
+    FIREBASE_SERVICE_ACCOUNT_KEY = os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY", "")
+
+    # --------------------------------------------------
+    # WEB PUSH & VAPID CONFIGURATION
+    # --------------------------------------------------
+    VAPID_PUBLIC_KEY = os.getenv(
+        "VAPID_PUBLIC_KEY",
+        "BHHyoMW8ErugleGfWh1e3l7Qhc3koZBWHk17Irb6XyCRv6Ylw3UpUI8k6j0z-grzWOQcT87G1gV8yIrfxZylA7Y"
+    )
+    VAPID_PRIVATE_KEY = os.getenv(
+        "VAPID_PRIVATE_KEY",
+        "m5_PA4iJi-JDO3-RVL-GbTo8fnOVe7YjGJucangq52g"
+    )
+    VAPID_CLAIM_EMAIL = os.getenv(
+        "VAPID_CLAIM_EMAIL",
+        "mailto:admin@connecthub.com"
+    )

@@ -350,6 +350,33 @@ def send_message(data):
             except Exception:
                 pass
 
+            # Background Web Push notification
+            try:
+                from notification_module.webpush_service import send_web_push
+                mem_user = db.session.get(User, member.user_id)
+                prof = getattr(mem_user, "profile", None)
+                is_group = bool(conversation and conversation.is_group)
+                allowed = True
+                if prof:
+                    if not prof.desktop_notifications_enabled:
+                        allowed = False
+                    elif is_group and not prof.group_chat_notifications_enabled:
+                        allowed = False
+                    elif not is_group and not prof.private_chat_notifications_enabled:
+                        allowed = False
+
+                if allowed:
+                    chat_title = f"{conversation.name}" if (conversation and conversation.is_group and conversation.name) else f"Chat from {current_user.username}"
+                    send_web_push(
+                        user_id=member.user_id,
+                        title=chat_title,
+                        body=f"{current_user.username}: {content[:80]}",
+                        url=f"/chat/conversation/{conversation_id}",
+                        tag=f"chat-{conversation_id}"
+                    )
+            except Exception:
+                pass
+
     notify_conversation_members(
         conversation_id,
         "conversation_list_update",

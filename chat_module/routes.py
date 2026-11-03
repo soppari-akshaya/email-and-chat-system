@@ -161,6 +161,34 @@ def broadcast_attachment_message(message):
             except Exception:
                 pass
 
+            # Background Web Push notification
+            try:
+                from notification_module.webpush_service import send_web_push
+                conv = db.session.get(Conversation, conversation_id)
+                mem_user = db.session.get(User, member.user_id)
+                prof = getattr(mem_user, "profile", None)
+                is_group = bool(conv and conv.is_group)
+                allowed = True
+                if prof:
+                    if not prof.desktop_notifications_enabled:
+                        allowed = False
+                    elif is_group and not prof.group_chat_notifications_enabled:
+                        allowed = False
+                    elif not is_group and not prof.private_chat_notifications_enabled:
+                        allowed = False
+
+                if allowed:
+                    chat_title = f"{conv.name}" if (conv and conv.is_group and conv.name) else f"Chat from {current_user.username}"
+                    send_web_push(
+                        user_id=member.user_id,
+                        title=chat_title,
+                        body=f"{current_user.username} sent an attachment: {message.attachment_name}",
+                        url=f"/chat/conversation/{conversation_id}",
+                        tag=f"chat-{conversation_id}"
+                    )
+            except Exception:
+                pass
+
     # Update conversation ordering for all members.
     notify_conversation_members(
         conversation_id,

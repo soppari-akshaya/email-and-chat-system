@@ -14,3 +14,4 @@ uploads/*
 .idea/
 .vscode/
 verify_live_render.py
+test_temp_upload/

@@ -1,6 +1,7 @@
 import os
 import sqlite3
-from flask import Flask, redirect, url_for, render_template
+from datetime import datetime, timezone
+from flask import Flask, redirect, url_for, render_template, send_from_directory, make_response
 from flask_login import current_user, login_required
 from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy import event
@@ -40,6 +41,7 @@ def ensure_db_schema(app):
     if not os.path.exists(db_path):
         return
 
+    from datetime import datetime
     try:
         con = sqlite3.connect(db_path)
         cur = con.cursor()
@@ -52,6 +54,12 @@ def ensure_db_schema(app):
         add_col_if_missing("emails", "label", "VARCHAR(50)")
         add_col_if_missing("chat_messages", "reply_to_id", "INTEGER")
         add_col_if_missing("user_profiles", "notification_preferences", "VARCHAR(255) DEFAULT 'email,chat,sound'")
+        add_col_if_missing("user_profiles", "desktop_notifications_enabled", "BOOLEAN DEFAULT 1")
+        add_col_if_missing("user_profiles", "email_notifications_enabled", "BOOLEAN DEFAULT 1")
+        add_col_if_missing("user_profiles", "private_chat_notifications_enabled", "BOOLEAN DEFAULT 1")
+        add_col_if_missing("user_profiles", "group_chat_notifications_enabled", "BOOLEAN DEFAULT 1")
+        add_col_if_missing("user_profiles", "sound_enabled", "BOOLEAN DEFAULT 1")
+        add_col_if_missing("user_profiles", "google_id", "VARCHAR(128)")
         add_col_if_missing("email_attachments", "mimetype", "VARCHAR(150) DEFAULT 'application/octet-stream'")
 
         con.commit()
@@ -101,7 +109,7 @@ def create_app(config_class=Config, test_config=None):
     from auth_module.models import User, UserProfile
     from email_module.models import Email, EmailAttachment
     from chat_module.models import Conversation, ConversationMember, ChatMessage
-    from notification_module.models import Notification
+    from notification_module.models import Notification, PushSubscription
 
     # --------------------------------------------------
     # REGISTER BLUEPRINTS
@@ -157,6 +165,13 @@ def create_app(config_class=Config, test_config=None):
     # --------------------------------------------------
     # ROUTES
     # --------------------------------------------------
+    @app.route("/sw.js")
+    def service_worker():
+        response = make_response(send_from_directory(os.path.join(app.root_path, "static"), "sw.js"))
+        response.headers["Content-Type"] = "application/javascript"
+        response.headers["Service-Worker-Allowed"] = "/"
+        return response
+
     @app.route("/")
     def home():
         if current_user.is_authenticated:
@@ -214,7 +229,6 @@ def create_app(config_class=Config, test_config=None):
             recent_emails = []
 
         try:
-            from datetime import timezone
             recent_conversations = [
                 m.conversation for m in memberships if m.conversation is not None
             ]
