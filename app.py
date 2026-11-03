@@ -30,40 +30,125 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 
 
 def ensure_db_schema(app):
-    """Safely apply schema migrations for new columns without data loss."""
+    """Safely apply schema migrations for new columns without data loss across SQLite and PostgreSQL."""
     if app.config.get("TESTING"):
         return
 
-    if not app.config.get("SQLALCHEMY_DATABASE_URI", "").startswith("sqlite"):
-        return
-
-    db_path = os.path.join(os.path.dirname(__file__), "application.db")
-    if not os.path.exists(db_path):
-        return
-
-    from datetime import datetime
     try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
+        from sqlalchemy import inspect, text
 
-        def add_col_if_missing(table, col, col_def):
-            cols = [r[1] for r in cur.execute(f"PRAGMA table_info({table})").fetchall()]
-            if col not in cols:
-                cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
+        engine = db.engine
+        dialect_name = engine.dialect.name
+        is_pg = (dialect_name == "postgresql")
 
-        add_col_if_missing("emails", "label", "VARCHAR(50)")
-        add_col_if_missing("chat_messages", "reply_to_id", "INTEGER")
-        add_col_if_missing("user_profiles", "notification_preferences", "VARCHAR(255) DEFAULT 'email,chat,sound'")
-        add_col_if_missing("user_profiles", "desktop_notifications_enabled", "BOOLEAN DEFAULT 1")
-        add_col_if_missing("user_profiles", "email_notifications_enabled", "BOOLEAN DEFAULT 1")
-        add_col_if_missing("user_profiles", "private_chat_notifications_enabled", "BOOLEAN DEFAULT 1")
-        add_col_if_missing("user_profiles", "group_chat_notifications_enabled", "BOOLEAN DEFAULT 1")
-        add_col_if_missing("user_profiles", "sound_enabled", "BOOLEAN DEFAULT 1")
-        add_col_if_missing("user_profiles", "google_id", "VARCHAR(128)")
-        add_col_if_missing("email_attachments", "mimetype", "VARCHAR(150) DEFAULT 'application/octet-stream'")
+        inspector = inspect(engine)
+        tables = set(inspector.get_table_names())
 
-        con.commit()
-        con.close()
+        # 1. user_profiles
+        if "user_profiles" in tables:
+            up_cols = {c["name"] for c in inspector.get_columns("user_profiles")}
+            with engine.begin() as conn:
+                if is_pg:
+                    conn.execute(text("ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS desktop_notifications_enabled BOOLEAN DEFAULT TRUE;"))
+                    conn.execute(text("ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS email_notifications_enabled BOOLEAN DEFAULT TRUE;"))
+                    conn.execute(text("ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS private_chat_notifications_enabled BOOLEAN DEFAULT TRUE;"))
+                    conn.execute(text("ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS group_chat_notifications_enabled BOOLEAN DEFAULT TRUE;"))
+                    conn.execute(text("ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS sound_enabled BOOLEAN DEFAULT TRUE;"))
+                    conn.execute(text("ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS google_id VARCHAR(128);"))
+                    conn.execute(text("ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS notification_preferences VARCHAR(255) DEFAULT 'email,chat,sound';"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_profiles_google_id ON user_profiles (google_id);"))
+                    conn.execute(text("UPDATE user_profiles SET desktop_notifications_enabled = TRUE WHERE desktop_notifications_enabled IS NULL;"))
+                    conn.execute(text("UPDATE user_profiles SET email_notifications_enabled = TRUE WHERE email_notifications_enabled IS NULL;"))
+                    conn.execute(text("UPDATE user_profiles SET private_chat_notifications_enabled = TRUE WHERE private_chat_notifications_enabled IS NULL;"))
+                    conn.execute(text("UPDATE user_profiles SET group_chat_notifications_enabled = TRUE WHERE group_chat_notifications_enabled IS NULL;"))
+                    conn.execute(text("UPDATE user_profiles SET sound_enabled = TRUE WHERE sound_enabled IS NULL;"))
+                    conn.execute(text("UPDATE user_profiles SET notification_preferences = 'email,chat,sound' WHERE notification_preferences IS NULL;"))
+                else:
+                    if "desktop_notifications_enabled" not in up_cols:
+                        conn.execute(text("ALTER TABLE user_profiles ADD COLUMN desktop_notifications_enabled BOOLEAN DEFAULT 1;"))
+                    if "email_notifications_enabled" not in up_cols:
+                        conn.execute(text("ALTER TABLE user_profiles ADD COLUMN email_notifications_enabled BOOLEAN DEFAULT 1;"))
+                    if "private_chat_notifications_enabled" not in up_cols:
+                        conn.execute(text("ALTER TABLE user_profiles ADD COLUMN private_chat_notifications_enabled BOOLEAN DEFAULT 1;"))
+                    if "group_chat_notifications_enabled" not in up_cols:
+                        conn.execute(text("ALTER TABLE user_profiles ADD COLUMN group_chat_notifications_enabled BOOLEAN DEFAULT 1;"))
+                    if "sound_enabled" not in up_cols:
+                        conn.execute(text("ALTER TABLE user_profiles ADD COLUMN sound_enabled BOOLEAN DEFAULT 1;"))
+                    if "google_id" not in up_cols:
+                        conn.execute(text("ALTER TABLE user_profiles ADD COLUMN google_id VARCHAR(128);"))
+                    if "notification_preferences" not in up_cols:
+                        conn.execute(text("ALTER TABLE user_profiles ADD COLUMN notification_preferences VARCHAR(255) DEFAULT 'email,chat,sound';"))
+
+        # 2. users
+        if "users" in tables:
+            with engine.begin() as conn:
+                if is_pg:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS online_status VARCHAR(20) DEFAULT 'offline';"))
+                    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP WITH TIME ZONE;"))
+
+        # 3. conversations
+        if "conversations" in tables:
+            with engine.begin() as conn:
+                if is_pg:
+                    conn.execute(text("ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_message_at TIMESTAMP WITH TIME ZONE;"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_conversations_last_message_at ON conversations (last_message_at);"))
+
+        # 4. emails
+        if "emails" in tables:
+            em_cols = {c["name"] for c in inspector.get_columns("emails")}
+            with engine.begin() as conn:
+                if is_pg:
+                    conn.execute(text("ALTER TABLE emails ADD COLUMN IF NOT EXISTS label VARCHAR(50);"))
+                else:
+                    if "label" not in em_cols:
+                        conn.execute(text("ALTER TABLE emails ADD COLUMN label VARCHAR(50);"))
+
+        # 5. chat_messages
+        if "chat_messages" in tables:
+            cm_cols = {c["name"] for c in inspector.get_columns("chat_messages")}
+            with engine.begin() as conn:
+                if is_pg:
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS reply_to_id INTEGER;"))
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS delivery_status VARCHAR(20) DEFAULT 'sent';"))
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP WITH TIME ZONE;"))
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS seen_at TIMESTAMP WITH TIME ZONE;"))
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE;"))
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP WITH TIME ZONE;"))
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;"))
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS attachment_name VARCHAR(255);"))
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS attachment_path VARCHAR(500);"))
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS attachment_mimetype VARCHAR(150);"))
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS attachment_size INTEGER;"))
+                else:
+                    if "reply_to_id" not in cm_cols:
+                        conn.execute(text("ALTER TABLE chat_messages ADD COLUMN reply_to_id INTEGER;"))
+
+        # 6. email_attachments
+        if "email_attachments" in tables:
+            ea_cols = {c["name"] for c in inspector.get_columns("email_attachments")}
+            with engine.begin() as conn:
+                if is_pg:
+                    conn.execute(text("ALTER TABLE email_attachments ADD COLUMN IF NOT EXISTS mimetype VARCHAR(150) DEFAULT 'application/octet-stream';"))
+                else:
+                    if "mimetype" not in ea_cols:
+                        conn.execute(text("ALTER TABLE email_attachments ADD COLUMN mimetype VARCHAR(150) DEFAULT 'application/octet-stream';"))
+
+        # 7. push_subscriptions
+        if is_pg and "push_subscriptions" not in tables:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS push_subscriptions (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        endpoint TEXT NOT NULL UNIQUE,
+                        p256dh VARCHAR(255) NOT NULL,
+                        auth VARCHAR(255) NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    );
+                """))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_push_subscriptions_endpoint ON push_subscriptions (endpoint);"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_push_subscriptions_user_id ON push_subscriptions (user_id);"))
+
     except Exception as e:
         app.logger.warning(f"Schema check error: {e}")
 
