@@ -1,0 +1,343 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ chat_title }} - ConnectHub</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <style>
+        body {
+            background: #f1f5f9;
+        }
+
+        #messages {
+            height: 400px;
+            overflow-y: auto;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .message {
+            padding: 10px 14px;
+            margin: 8px 0;
+            border-radius: 12px;
+            max-width: 75%;
+            overflow-wrap: anywhere;
+        }
+
+        .mine {
+            background: #dbeafe;
+            margin-left: auto;
+        }
+
+        .theirs {
+            background: #e5e7eb;
+            margin-right: auto;
+        }
+
+        .message small {
+            display: block;
+            color: #64748b;
+        }
+
+        .message-status {
+            display: inline-block;
+            margin-left: 6px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .message-status.sent {
+            color: #64748b;
+        }
+
+        .message-status.delivered {
+            color: #64748b;
+        }
+
+        .message-status.read {
+            color: #0d6efd;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container py-4">
+
+    <a href="{{ url_for('chat.index') }}"
+       class="btn btn-secondary mb-3">
+        Back to Chats
+    </a>
+
+    <div class="card shadow-sm">
+
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">{{ chat_title }}</h5>
+            <small id="connection-status">Connecting...</small>
+        </div>
+
+        <div class="card-body">
+
+            <div id="messages">
+
+                {% for message in messages %}
+
+                    <div class="message {% if message.sender_id == current_user.id %}mine{% else %}theirs{% endif %}"
+                         {% if message.sender_id == current_user.id %}
+                         data-message-id="{{ message.id }}"
+                         {% endif %}>
+
+                        <strong>{{ message.sender.username }}</strong>
+
+                        <div>{{ message.content }}</div>
+
+                        <small>
+                            {{ message.created_at.strftime('%d-%m-%Y %I:%M %p') }}
+
+                            {% if message.sender_id == current_user.id %}
+
+                                {% set receipt_status = namespace(value='sent', total=message.receipts|length, delivered=0, read=0) %}
+
+                                {% for receipt in message.receipts %}
+                                    {% if receipt.delivered_at %}
+                                        {% set receipt_status.delivered = receipt_status.delivered + 1 %}
+                                    {% endif %}
+
+                                    {% if receipt.read_at %}
+                                        {% set receipt_status.read = receipt_status.read + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if receipt_status.total > 0 and receipt_status.read == receipt_status.total %}
+                                    {% set receipt_status.value = 'read' %}
+                                {% elif receipt_status.total > 0 and receipt_status.delivered == receipt_status.total %}
+                                    {% set receipt_status.value = 'delivered' %}
+                                {% endif %}
+
+                                <span class="message-status {{ receipt_status.value }}"
+                                      data-status="{{ receipt_status.value }}">
+                                    {% if receipt_status.value == 'read' %}
+                                        ✓✓ Read
+                                    {% elif receipt_status.value == 'delivered' %}
+                                        ✓✓ Delivered
+                                    {% else %}
+                                        ✓ Sent
+                                    {% endif %}
+                                </span>
+
+                            {% endif %}
+                        </small>
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+            <p id="typing-status" class="text-muted mt-2"></p>
+
+            <form id="message-form" class="d-flex gap-2 mt-3">
+
+                <input id="message-input"
+                       class="form-control"
+                       placeholder="Type your message..."
+                       maxlength="5000"
+                       autocomplete="off"
+                       required>
+
+                <button class="btn btn-primary" type="submit">
+                    Send
+                </button>
+
+            </form>
+
+            <p id="error-message" class="text-danger mt-2"></p>
+
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+<script>
+
+    const conversationId = {{ conversation.id|tojson }};
+    const myUserId = {{ current_user.id|tojson }};
+
+    const socket = io();
+
+    const messages = document.getElementById("messages");
+    const input = document.getElementById("message-input");
+    const form = document.getElementById("message-form");
+    const status = document.getElementById("connection-status");
+    const typingStatus = document.getElementById("typing-status");
+    const errorMessage = document.getElementById("error-message");
+
+    function scrollToBottom() {
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    // Add a new message
+    function addMessage(message) {
+
+        const wrapper = document.createElement("div");
+
+        const isMine = Number(message.sender_id) === Number(myUserId);
+
+        wrapper.className = "message " + (isMine ? "mine" : "theirs");
+
+        if (isMine) {
+            wrapper.dataset.messageId = message.id;
+        }
+
+        const sender = document.createElement("strong");
+        sender.textContent = message.sender_name;
+
+        const content = document.createElement("div");
+        content.textContent = message.content;
+
+        const time = document.createElement("small");
+        time.textContent = new Date(message.created_at).toLocaleString();
+
+        if (isMine) {
+
+            const receipt = document.createElement("span");
+
+            receipt.className = "message-status sent";
+            receipt.dataset.status = "sent";
+            receipt.textContent = " ✓ Sent";
+
+            time.appendChild(receipt);
+        }
+
+        wrapper.append(sender, content, time);
+
+        messages.appendChild(wrapper);
+
+        scrollToBottom();
+    }
+
+    // Update message receipt
+    function updateReceipt(data) {
+
+        const messageElement = messages.querySelector(
+            '[data-message-id="' + data.message_id + '"]'
+        );
+
+        if (!messageElement) return;
+
+        const receipt = messageElement.querySelector(".message-status");
+
+        if (!receipt) return;
+
+        receipt.dataset.status = data.status;
+        receipt.className = "message-status " + data.status;
+
+        if (data.status === "read") {
+            receipt.textContent = " ✓✓ Read";
+        } else if (data.status === "delivered") {
+            receipt.textContent = " ✓✓ Delivered";
+        }
+    }
+
+    // Connect to server
+    socket.on("connect", () => {
+
+        status.textContent = "Connected";
+
+        socket.emit("join_conversation", {
+            conversation_id: conversationId
+        });
+
+        // Mark received messages as read
+        socket.emit("mark_messages_read", {
+            conversation_id: conversationId
+        });
+
+    });
+
+    socket.on("disconnect", () => {
+        status.textContent = "Disconnected. Reconnecting...";
+    });
+
+    // Receive new messages
+    socket.on("new_message", (message) => {
+
+        if (Number(message.conversation_id) !== Number(conversationId)) {
+            return;
+        }
+
+        addMessage(message);
+
+        // Automatically mark incoming messages as read
+        if (Number(message.sender_id) !== Number(myUserId)) {
+
+            socket.emit("mark_messages_read", {
+                conversation_id: conversationId
+            });
+
+        }
+
+    });
+
+    // Receive delivery/read receipt updates
+    socket.on("receipt_update", (data) => {
+        updateReceipt(data);
+    });
+
+    // Display errors
+    socket.on("message_error", (data) => {
+        errorMessage.textContent = data.error;
+    });
+
+    // Typing indicator
+    socket.on("user_typing", (data) => {
+
+        typingStatus.textContent = data.username + " is typing...";
+
+        setTimeout(() => {
+            typingStatus.textContent = "";
+        }, 2000);
+
+    });
+
+    // Send message
+    form.addEventListener("submit", (event) => {
+
+        event.preventDefault();
+
+        const content = input.value.trim();
+
+        if (!content) return;
+
+        errorMessage.textContent = "";
+
+        socket.emit("send_message", {
+            conversation_id: conversationId,
+            content: content
+        });
+
+        input.value = "";
+    });
+
+    // Typing event
+    input.addEventListener("input", () => {
+
+        socket.emit("typing", {
+            conversation_id: conversationId
+        });
+
+    });
+
+    scrollToBottom();
+
+</script>
+
+</body>
+</html>

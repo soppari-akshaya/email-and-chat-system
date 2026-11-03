@@ -1,0 +1,15 @@
+
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <h2>Important Emails</h2>
+    {% for email in emails %}
+        <div class="card p-3 mb-2">
+            <strong>{{ email.subject or "(No subject)" }}</strong>
+            <p>{{ email.body[:150] }}</p>
+        </div>
+    {% else %}
+        <p>No important emails.</p>
+    {% endfor %}
+</div>
+{% endblock %}

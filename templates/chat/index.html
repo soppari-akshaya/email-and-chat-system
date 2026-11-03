@@ -1,0 +1,319 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ConnectHub Chat</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <style>
+        body {
+            background: #f1f5f9;
+            font-family: Arial, sans-serif;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 7px;
+            background: #9ca3af;
+        }
+
+        .status-dot.online {
+            background: #16a34a;
+        }
+
+        .status-dot.offline {
+            background: #9ca3af;
+        }
+
+        .status-text {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .user-info {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container py-5">
+
+    <h2>ConnectHub Chat</h2>
+
+    <a href="{{ url_for('dashboard') }}"
+       class="btn btn-secondary mb-3">
+        Dashboard
+    </a>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endwith %}
+
+    <!-- Private Chat -->
+    <div class="card mb-4">
+
+        <div class="card-header">
+            Start Private Chat
+        </div>
+
+        <div class="list-group list-group-flush">
+
+            {% for user in users %}
+
+                <a class="list-group-item list-group-item-action"
+                   href="{{ url_for('chat.private_chat', user_id=user.id) }}">
+
+                    <strong>{{ user.username }}</strong>
+
+                    <span class="user-info ms-2">
+                        <span class="status-dot offline"
+                              id="status-dot-{{ user.id }}"></span>
+
+                        <span class="status-text"
+                              id="status-text-{{ user.id }}">
+                            Offline
+                        </span>
+                    </span>
+
+                    <br>
+
+                    <small class="text-muted">
+                        {{ user.email }}
+                    </small>
+
+                    <small class="text-muted d-block"
+                           id="last-seen-{{ user.id }}">
+                        {% if user.last_seen %}
+                            Last seen: {{ user.last_seen.strftime('%d %b %Y, %I:%M %p') }}
+                        {% else %}
+                            Last seen: Unknown
+                        {% endif %}
+                    </small>
+
+                </a>
+
+            {% else %}
+
+                <div class="list-group-item">
+                    No other users registered.
+                </div>
+
+            {% endfor %}
+
+        </div>
+    </div>
+
+    <!-- Create Group -->
+    <div class="card mb-4">
+
+        <div class="card-header">
+            Create Group Chat
+        </div>
+
+        <div class="card-body">
+
+            <form method="POST"
+                  action="{{ url_for('chat.create_group') }}">
+
+                <input type="hidden"
+                       name="csrf_token"
+                       value="{{ csrf_token() }}">
+
+                <label class="form-label">
+                    Group Name
+                </label>
+
+                <input type="text"
+                       name="group_name"
+                       class="form-control mb-3"
+                       maxlength="100"
+                       placeholder="Enter group name"
+                       required>
+
+                <label class="form-label">
+                    Select Members
+                </label>
+
+                {% for user in users %}
+
+                    <div class="form-check">
+
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="members"
+                               value="{{ user.id }}"
+                               id="member{{ user.id }}">
+
+                        <label class="form-check-label"
+                               for="member{{ user.id }}">
+                            {{ user.username }}
+                        </label>
+
+                    </div>
+
+                {% endfor %}
+
+                <button type="submit"
+                        class="btn btn-success mt-3">
+                    Create Group
+                </button>
+
+            </form>
+
+        </div>
+    </div>
+
+    <!-- Existing Conversations -->
+    <div class="card">
+
+        <div class="card-header">
+            Your Conversations
+        </div>
+
+        <div class="list-group list-group-flush">
+
+            {% for conversation in conversations %}
+
+                {% if conversation.is_group %}
+
+                    <a class="list-group-item list-group-item-action"
+                       href="{{ url_for('chat.group_chat', conversation_id=conversation.id) }}">
+
+                        {{ conversation.name or "Group Chat" }}
+
+                        <span class="badge bg-primary">
+                            Group
+                        </span>
+
+                    </a>
+
+                {% else %}
+
+                    {% for member in conversation.members %}
+
+                        {% if member.user_id != current_user.id %}
+
+                            <a class="list-group-item list-group-item-action"
+                               href="{{ url_for('chat.private_chat', user_id=member.user_id) }}">
+
+                                Private chat with
+                                <strong>
+                                    {{ member.user.username if member.user else "User" }}
+                                </strong>
+
+                                <span class="user-info ms-2">
+                                    <span class="status-dot offline"
+                                          id="conversation-dot-{{ member.user_id }}"></span>
+
+                                    <span class="status-text"
+                                          id="conversation-status-{{ member.user_id }}">
+                                        Offline
+                                    </span>
+                                </span>
+
+                            </a>
+
+                        {% endif %}
+
+                    {% endfor %}
+
+                {% endif %}
+
+            {% else %}
+
+                <div class="list-group-item">
+                    No conversations yet.
+                </div>
+
+            {% endfor %}
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Socket.IO -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+<script>
+    const socket = io();
+
+    function updateUserStatus(userId, status) {
+
+        const isOnline = status === "online";
+
+        const dot = document.getElementById("status-dot-" + userId);
+        const text = document.getElementById("status-text-" + userId);
+        const conversationDot = document.getElementById(
+            "conversation-dot-" + userId
+        );
+        const conversationText = document.getElementById(
+            "conversation-status-" + userId
+        );
+        const lastSeen = document.getElementById("last-seen-" + userId);
+
+        if (dot) {
+            dot.className = "status-dot " +
+                (isOnline ? "online" : "offline");
+        }
+
+        if (text) {
+            text.textContent = isOnline ? "Online" : "Offline";
+        }
+
+        if (conversationDot) {
+            conversationDot.className = "status-dot " +
+                (isOnline ? "online" : "offline");
+        }
+
+        if (conversationText) {
+            conversationText.textContent = isOnline ? "Online" : "Offline";
+        }
+
+        if (lastSeen && isOnline) {
+            lastSeen.textContent = "Currently online";
+        }
+    }
+
+    socket.on("connect", function () {
+        socket.emit("request_online_users");
+    });
+
+    socket.on("online_users", function (data) {
+
+        const onlineIds = data.user_ids.map(Number);
+
+        document.querySelectorAll("[id^='status-dot-']").forEach(dot => {
+            const userId = dot.id.replace("status-dot-", "");
+
+            updateUserStatus(
+                userId,
+                onlineIds.includes(Number(userId)) ? "online" : "offline"
+            );
+        });
+
+    });
+
+    socket.on("user_status", function (data) {
+        updateUserStatus(data.user_id, data.status);
+    });
+</script>
+
+</body>
+</html>
