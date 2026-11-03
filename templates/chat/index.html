@@ -52,6 +52,11 @@
         color: inherit;
     }
 
+    .flex-1 {
+        flex: 1 1 0%;
+        min-width: 0;
+    }
+
     .status-dot {
         width: 9px;
         height: 9px;
@@ -163,7 +168,7 @@
                                     </div>
                                     <div class="overflow-hidden flex-1">
                                         <div class="d-flex align-items-center justify-content-between mb-1">
-                                            <span class="fw-bold text-dark text-truncate" style="font-size: 13.5px;">{{ conv.name }}</span>
+                                            <span class="fw-bold text-dark text-truncate" style="font-size: 13.5px;">{{ conv.name or 'Group Chat' }}</span>
                                             <small class="text-muted conv-time" data-utc="{{ conv.last_message_at_iso or '' }}" style="font-size: 11px;">{{ last_msg.time }}</small>
                                         </div>
                                         <div class="d-flex align-items-center justify-content-between">
@@ -186,9 +191,9 @@
                                     <a href="{{ url_for('chat.private_chat', user_id=partner.user.id) }}"
                                        class="conversation-card-item searchable-item"
                                        id="conv-item-{{ conv.id }}"
-                                       data-search="{{ partner.user.username|lower }} {{ partner.user.email|lower }}">
+                                       data-search="{{ (partner.user.username or '')|lower }} {{ (partner.user.email or '')|lower }}">
                                         <div class="position-relative flex-shrink-0">
-                                            <div class="user-avatar" style="width: 44px; height: 44px; font-size: 18px;">
+                                            <div class="user-avatar" id="avatar-conv-user-{{ partner.user.id }}" style="width: 44px; height: 44px; font-size: 18px;">
                                                 {% if partner.user.profile and partner.user.profile.profile_image %}
                                                     <img src="{{ url_for('auth.profile_image', user_id=partner.user.id) }}" class="rounded-circle w-100 h-100 object-fit-cover">
                                                 {% else %}
@@ -199,7 +204,7 @@
                                         </div>
                                         <div class="overflow-hidden flex-1">
                                             <div class="d-flex align-items-center justify-content-between mb-1">
-                                                <span class="fw-bold text-dark text-truncate" style="font-size: 13.5px;">{{ partner.user.username }}</span>
+                                                <span class="fw-bold text-dark text-truncate" style="font-size: 13.5px;">{{ partner.user.username or 'User' }}</span>
                                                 <small class="text-muted conv-time" data-utc="{{ conv.last_message_at_iso or '' }}" style="font-size: 11px;">{{ last_msg.time }}</small>
                                             </div>
                                             <div class="d-flex align-items-center justify-content-between">
@@ -226,7 +231,7 @@
                 <div class="tab-pane fade" id="peopleTabPane" role="tabpanel">
                     <div id="peopleList">
                         {% for user in users %}
-                            <div class="conversation-card-item searchable-item" id="people-item-{{ user.id }}" data-search="{{ user.username|lower }} {{ user.email|lower }}" style="cursor: pointer;" onclick="window.location='{{ url_for('chat.private_chat', user_id=user.id) }}'">
+                            <div class="conversation-card-item searchable-item" id="people-item-{{ user.id }}" data-search="{{ (user.username or '')|lower }} {{ (user.email or '')|lower }}" style="cursor: pointer;" onclick="window.location='{{ url_for('chat.private_chat', user_id=user.id) }}'">
                                 <div class="position-relative flex-shrink-0">
                                     <div class="user-avatar" id="avatar-user-{{ user.id }}" style="width: 40px; height: 40px; font-size: 16px;">
                                         {% if user.profile and user.profile.profile_image %}
@@ -240,7 +245,7 @@
                                 <div class="overflow-hidden flex-1">
                                     <div class="d-flex align-items-center justify-content-between mb-0.5">
                                         <a href="{{ url_for('auth.view_user', user_id=user.id) }}" class="text-decoration-none text-dark hover-underline" onclick="event.stopPropagation();">
-                                            <span class="fw-bold text-truncate" style="font-size: 13px;">{{ user.username }}</span>
+                                            <span class="fw-bold text-truncate" style="font-size: 13px;">{{ user.username or 'User' }}</span>
                                         </a>
                                         <span class="small {% if user.online_status == 'online' %}text-success{% else %}text-muted{% endif %} fw-medium" id="people-status-{{ user.id }}" style="font-size: 11px;">
                                             {% if user.online_status == 'online' %}Online{% else %}Offline{% endif %}
@@ -248,7 +253,7 @@
                                     </div>
                                     <small class="text-muted text-truncate d-block" style="font-size: 11px;">{{ user.email }}</small>
                                 </div>
-                                <div class="d-flex align-items-center gap-1.5 ms-2">
+                                <div class="d-flex align-items-center gap-2 ms-2">
                                     <a href="{{ url_for('auth.view_user', user_id=user.id) }}" class="btn btn-sm btn-light border py-1 px-2" style="font-size: 11.5px;" title="View Profile" onclick="event.stopPropagation();">
                                         <i class="bi bi-person"></i>
                                     </a>
@@ -464,14 +469,16 @@
     });
 
     socket.on("profile_updated", (data) => {
-        const avatarEl = document.getElementById("avatar-user-" + data.user_id);
-        if (avatarEl) {
+        const updateAvatar = (el) => {
+            if (!el) return;
             if (data.profile_image) {
-                avatarEl.innerHTML = `<img src="/auth/profile-image/${data.user_id}?t=${new Date().getTime()}" class="rounded-circle w-100 h-100 object-fit-cover">`;
+                el.innerHTML = `<img src="/auth/profile-image/${data.user_id}?t=${new Date().getTime()}" class="rounded-circle w-100 h-100 object-fit-cover">`;
             } else {
-                avatarEl.innerHTML = (data.username || "U").substring(0, 1).toUpperCase();
+                el.innerHTML = escapeHtml((data.username || "U").substring(0, 1).toUpperCase());
             }
-        }
+        };
+        updateAvatar(document.getElementById("avatar-user-" + data.user_id));
+        updateAvatar(document.getElementById("avatar-conv-user-" + data.user_id));
     });
 
     // Dynamic arrival of newly registered users
@@ -582,7 +589,7 @@
                     : escapeHtml(initial);
                 avatarContent = `
                     <div class="position-relative flex-shrink-0">
-                        <div class="user-avatar" style="width: 44px; height: 44px; font-size: 18px;">${avatarInner}</div>
+                        <div class="user-avatar" id="avatar-conv-user-${data.partner_id}" style="width: 44px; height: 44px; font-size: 18px;">${avatarInner}</div>
                         <span class="status-dot offline position-absolute bottom-0 end-0 border border-2 border-white" id="online-dot-${data.partner_id}"></span>
                     </div>
                 `;

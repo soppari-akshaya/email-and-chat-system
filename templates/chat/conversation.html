@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}{{ chat_title }} - Chat{% endblock %}
-{% block page_title %}{{ chat_title }}{% endblock %}
+{% block title %}{{ chat_title or 'Chat' }} - Chat{% endblock %}
+{% block page_title %}{{ chat_title or 'Chat' }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -70,10 +70,18 @@
         color: rgba(255, 255, 255, 0.85);
     }
 
+    .receipt-icon .text-delivered {
+        color: rgba(255, 255, 255, 0.85);
+    }
+
     .receipt-icon .text-seen {
         color: #38bdf8 !important; /* WhatsApp cyan-blue */
         font-weight: 700;
         filter: drop-shadow(0 0 1.5px rgba(56, 189, 248, 0.7));
+    }
+
+    .msg-content:empty {
+        display: none;
     }
 
     .msg-bubble.theirs {
@@ -198,12 +206,12 @@
                 </a>
 
                 {% if not conversation.is_group and other_user %}
-                    <a href="{{ url_for('auth.view_user', user_id=other_user.id) }}" class="text-decoration-none" title="View {{ chat_title }}'s Profile">
+                    <a href="{{ url_for('auth.view_user', user_id=other_user.id) }}" class="text-decoration-none" title="View {{ chat_title or 'User' }}'s Profile">
                         <div class="user-avatar" style="width: 42px; height: 42px; font-size: 17px; background: var(--primary);">
                             {% if other_user.profile and other_user.profile.profile_image %}
                                 <img src="{{ url_for('auth.profile_image', user_id=other_user.id) }}" class="rounded-circle w-100 h-100 object-fit-cover">
                             {% else %}
-                                {{ chat_title[:1]|upper }}
+                                {{ (chat_title or 'U')[:1]|upper }}
                             {% endif %}
                         </div>
                     </a>
@@ -216,10 +224,10 @@
                 <div>
                     {% if not conversation.is_group and other_user %}
                         <a href="{{ url_for('auth.view_user', user_id=other_user.id) }}" class="text-decoration-none text-dark">
-                            <h6 class="fw-bold mb-0 hover-underline">{{ chat_title }}</h6>
+                            <h6 class="fw-bold mb-0 hover-underline">{{ chat_title or 'Chat' }}</h6>
                         </a>
                     {% else %}
-                        <h6 class="fw-bold mb-0 text-dark">{{ chat_title }}</h6>
+                        <h6 class="fw-bold mb-0 text-dark">{{ chat_title or 'Chat' }}</h6>
                     {% endif %}
                     <div class="d-flex align-items-center gap-2 small text-muted">
                         {% if conversation.is_group %}
@@ -262,17 +270,17 @@
 
             {% for msg in messages %}
                 {% set is_mine = (msg.sender_id == current_user.id) %}
-                <div class="msg-bubble {% if is_mine %}mine{% else %}theirs{% endif %}" id="msg-{{ msg.id }}" data-message-id="{{ msg.id }}">
+                <div class="msg-bubble {% if is_mine %}mine{% else %}theirs{% endif %}" id="msg-{{ msg.id }}" data-message-id="{{ msg.id }}" data-sender-name="{{ (msg.sender.username if msg.sender else 'User')|e }}">
 
                     <!-- Actions hover bar -->
                     <div class="msg-actions-hover">
-                        <button type="button" class="msg-action-btn" onclick="startReply({{ msg.id }}, '{{ msg.sender.username if msg.sender else 'User' }}', '{{ (msg.content or msg.attachment_name or '')[:40]|replace('\'', '\\\'') }}')" title="Reply">
+                        <button type="button" class="msg-action-btn" onclick="startReply({{ msg.id }})" title="Reply">
                             <i class="bi bi-reply"></i>
                         </button>
 
                         {% if is_mine and not msg.is_deleted %}
                             {% if not msg.attachment_name %}
-                                <button type="button" class="msg-action-btn" onclick="editMessage({{ msg.id }}, '{{ msg.content|replace('\'', '\\\'') }}')" title="Edit">
+                                <button type="button" class="msg-action-btn" onclick="editMessage({{ msg.id }})" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </button>
                             {% endif %}
@@ -284,13 +292,13 @@
 
                     <!-- Sender name in group -->
                     {% if conversation.is_group and not is_mine %}
-                        <div class="msg-sender-name">{{ msg.sender.username if msg.sender else 'User' }}</div>
+                        <div class="msg-sender-name">{{ (msg.sender.username if msg.sender else 'User') or 'User' }}</div>
                     {% endif %}
 
                     <!-- Reply quote if replied to another message -->
                     {% if msg.reply_to %}
                         <div class="reply-quote">
-                            <strong>{{ msg.reply_to.sender.username if msg.reply_to.sender else 'User' }}</strong>:
+                            <strong>{{ (msg.reply_to.sender.username if msg.reply_to.sender else 'User') or 'User' }}</strong>:
                             {% if msg.reply_to.is_deleted %}
                                 <em>This message was deleted.</em>
                             {% else %}
@@ -320,8 +328,8 @@
                                 <a href="{{ url_for('chat.download_attachment', message_id=msg.id) }}"
                                    class="btn btn-sm btn-light border d-inline-flex align-items-center gap-2 mt-1">
                                     <i class="bi bi-file-earmark-arrow-down-fill text-primary"></i>
-                                    <span>{{ msg.attachment_name }}</span>
-                                    <small class="text-muted">({{ (msg.attachment_size / 1024)|round(1) }} KB)</small>
+                                    <span class="attachment-label">{{ msg.attachment_name }}</span>
+                                    <small class="text-muted">({{ (((msg.attachment_size or 0) / 1024)|round(1)) }} KB)</small>
                                 </a>
                             {% endif %}
                         </div>
@@ -453,17 +461,17 @@
                                     {% if m.user and m.user.profile and m.user.profile.profile_image %}
                                         <img src="{{ url_for('auth.profile_image', user_id=m.user.id) }}" class="rounded-circle w-100 h-100 object-fit-cover">
                                     {% else %}
-                                        {{ m.user.username[:1]|upper if m.user else 'U' }}
+                                        {{ ((m.user.username if m.user else 'U') or 'U')[:1]|upper }}
                                     {% endif %}
                                 </div>
                                 <div>
-                                    <div class="fw-semibold text-dark d-flex align-items-center gap-1.5" style="font-size: 13.5px;">
+                                    <div class="fw-semibold text-dark d-flex align-items-center gap-2" style="font-size: 13.5px;">
                                         {% if m.user and m.user.id != current_user.id %}
                                             <a href="{{ url_for('auth.view_user', user_id=m.user.id) }}" class="text-decoration-none text-dark hover-underline">
-                                                {{ m.user.username }}
+                                                {{ m.user.username or 'Unknown' }}
                                             </a>
                                         {% else %}
-                                            <span>{{ m.user.username if m.user else 'Unknown' }}</span>
+                                            <span>{{ (m.user.username if m.user else 'Unknown') or 'Unknown' }}</span>
                                         {% endif %}
                                         <span class="status-dot {% if m.user and m.user.online_status == 'online' %}online{% else %}offline{% endif %}" id="group-member-dot-{{ m.user_id }}" style="width: 7px; height: 7px; border-radius: 50%;"></span>
                                         {% if m.user_id == current_user.id %}
@@ -498,7 +506,15 @@
 <script>
     const conversationId = {{ conversation.id }};
     const currentUserId = {{ current_user.id }};
-    const currentUsername = "{{ current_user.username }}";
+    const currentUsername = {{ current_user.username|tojson }};
+    const isGroup = {{ 'true' if conversation.is_group else 'false' }};
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const p = document.createElement('p');
+        p.textContent = str;
+        return p.innerHTML;
+    }
 
     function parseUtcDate(utcStr) {
         if (!utcStr) return null;
@@ -597,12 +613,13 @@
         {% if not conversation.is_group and other_user %}
         if (Number(data.user_id) === {{ other_user.id }}) {
             const isOnline = (data.status === "online");
-            const peerStatusEl = document.getElementById("peer-status");
-            if (peerStatusEl) {
-                peerStatusEl.innerHTML = `
-                    <span class="status-dot ${isOnline ? 'online' : 'offline'}" style="width: 7px; height: 7px; background: ${isOnline ? '#10b981' : '#94a3b8'}; border-radius: 50%;"></span>
-                    <span>${isOnline ? 'Active' : 'Offline'}</span>
-                `;
+            const peerDot = document.getElementById("peer-status-dot");
+            const peerText = document.getElementById("peer-status-text");
+            if (peerDot) {
+                peerDot.className = "status-dot " + (isOnline ? "online" : "offline");
+            }
+            if (peerText) {
+                peerText.textContent = isOnline ? "Online" : "Offline";
             }
         }
         {% endif %}
@@ -630,23 +647,30 @@
         bubble.className = "msg-bubble " + (isMine ? "mine" : "theirs");
         bubble.id = "msg-" + msg.id;
         bubble.dataset.messageId = msg.id;
+        bubble.dataset.senderName = msg.sender_name || 'User';
 
         let replyHtml = '';
         if (msg.reply_to) {
             replyHtml = `
                 <div class="reply-quote">
-                    <strong>${msg.reply_to.sender_name}</strong>: ${msg.reply_to.content}
+                    <strong>${escapeHtml(msg.reply_to.sender_name || 'User')}</strong>: ${escapeHtml(msg.reply_to.content || '')}
                 </div>
             `;
         }
 
+        let senderHtml = '';
+        if (isGroup && !isMine) {
+            senderHtml = `<div class="msg-sender-name">${escapeHtml(msg.sender_name || 'User')}</div>`;
+        }
+
         let mediaHtml = '';
         if (msg.has_attachment && msg.attachment_name) {
+            const safeName = escapeHtml(msg.attachment_name);
             if (msg.attachment_mimetype && msg.attachment_mimetype.startsWith('image/')) {
                 mediaHtml = `
                     <div class="mt-2">
                         <a href="/chat/attachment/${msg.id}/download?inline=1" target="_blank">
-                            <img src="/chat/attachment/${msg.id}/download?inline=1" class="chat-media-preview d-block border">
+                            <img src="/chat/attachment/${msg.id}/download?inline=1" alt="${safeName}" class="chat-media-preview d-block border">
                         </a>
                     </div>
                 `;
@@ -655,7 +679,7 @@
                     <div class="mt-2">
                         <a href="/chat/attachment/${msg.id}/download" class="btn btn-sm btn-light border d-inline-flex align-items-center gap-2">
                             <i class="bi bi-file-earmark-arrow-down-fill text-primary"></i>
-                            <span>${msg.attachment_name}</span>
+                            <span class="attachment-label">${safeName}</span>
                         </a>
                     </div>
                 `;
@@ -664,12 +688,12 @@
 
         let actionsHtml = `
             <div class="msg-actions-hover">
-                <button type="button" class="msg-action-btn" onclick="startReply(${msg.id}, '${msg.sender_name}', '${(msg.content || msg.attachment_name || '').substring(0, 40).replace(/'/g, "\\'")}')" title="Reply">
+                <button type="button" class="msg-action-btn" onclick="startReply(${msg.id})" title="Reply">
                     <i class="bi bi-reply"></i>
                 </button>
                 ${isMine ? `
                     ${!msg.has_attachment ? `
-                        <button type="button" class="msg-action-btn" onclick="editMessage(${msg.id}, '${(msg.content || '').replace(/'/g, "\\'")}')" title="Edit">
+                        <button type="button" class="msg-action-btn" onclick="editMessage(${msg.id})" title="Edit">
                             <i class="bi bi-pencil"></i>
                         </button>
                     ` : ''}
@@ -698,8 +722,9 @@
 
         bubble.innerHTML = `
             ${actionsHtml}
+            ${senderHtml}
             ${replyHtml}
-            <div class="msg-content">${msg.content || ''}</div>
+            <div class="msg-content">${escapeHtml(msg.content || '')}</div>
             ${mediaHtml}
             <div class="msg-meta">
                 <span class="msg-timestamp" data-utc="${msg.created_at || ''}" title="${fullDateTitle}">${formattedTime}</span>
@@ -787,7 +812,7 @@
                 if (data.profile_image) {
                     headerAvatar.innerHTML = `<img src="/auth/profile-image/${data.user_id}?t=${new Date().getTime()}" class="rounded-circle w-100 h-100 object-fit-cover">`;
                 } else {
-                    headerAvatar.innerHTML = "{{ chat_title[:1]|upper }}";
+                    headerAvatar.innerHTML = {{ (chat_title or 'U')[:1]|upper|tojson }};
                 }
             }
         }
@@ -833,7 +858,18 @@
     });
 
     // Reply Management
-    function startReply(msgId, senderName, snippet) {
+    function startReply(msgId) {
+        const bubble = document.getElementById("msg-" + msgId);
+        if (!bubble) return;
+        const senderName = bubble.dataset.senderName || "User";
+        const contentEl = bubble.querySelector(".msg-content");
+        let snippet = contentEl ? contentEl.textContent.trim() : "";
+        if (!snippet) {
+            const attachEl = bubble.querySelector(".attachment-label");
+            snippet = attachEl ? attachEl.textContent.trim() : "Attachment";
+        }
+        snippet = snippet.substring(0, 40);
+
         replyToInput.value = msgId;
         replyTargetUser.textContent = senderName;
         replyTargetText.textContent = snippet;
@@ -847,7 +883,11 @@
     }
 
     // Edit Message
-    function editMessage(msgId, currentText) {
+    function editMessage(msgId) {
+        const bubble = document.getElementById("msg-" + msgId);
+        if (!bubble) return;
+        const contentEl = bubble.querySelector(".msg-content");
+        const currentText = contentEl ? contentEl.textContent.trim() : "";
         const newText = prompt("Edit your message:", currentText);
         if (newText && newText.trim() && newText.trim() !== currentText) {
             socket.emit("edit_message", {
