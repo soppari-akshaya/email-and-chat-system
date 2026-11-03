@@ -16,11 +16,17 @@
     <!-- Global App Stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
+    <!-- Anti-flicker Theme Initialization -->
     <script>
-        try {
-            localStorage.removeItem('connecthub_theme');
-            localStorage.removeItem('theme');
-        } catch (e) {}
+        (function() {
+            try {
+                var storedTheme = localStorage.getItem('connecthub_theme') || localStorage.getItem('theme');
+                var theme = (storedTheme === 'dark' || storedTheme === 'light') ? storedTheme :
+                    ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+                document.documentElement.setAttribute('data-bs-theme', theme);
+            } catch (e) {}
+        })();
     </script>
 
     <style>
@@ -220,6 +226,12 @@
                 <a href="{{ url_for('chat.index') }}" class="topbar-icon-btn" title="Chat">
                     <i class="bi bi-chat-dots"></i>
                 </a>
+
+                <!-- Theme Toggle Button (Top Header ONLY) -->
+                <button type="button" class="topbar-icon-btn theme-toggle-btn" id="themeToggleBtn" title="Toggle Light / Dark Theme" aria-label="Toggle theme">
+                    <i class="bi bi-moon-stars-fill theme-icon-dark" style="font-size: 15px;"></i>
+                    <i class="bi bi-sun-fill theme-icon-light d-none" style="font-size: 16px; color: #f59e0b;"></i>
+                </button>
 
                 <!-- User Dropdown Menu -->
                 <div class="dropdown">

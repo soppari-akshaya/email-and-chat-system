@@ -159,3 +159,44 @@ def test_user_profile_notification_flags():
     assert profile.group_chat_notifications_enabled is True
     assert profile.email_notifications_enabled is False
     assert profile.sound_enabled is False
+
+def test_theme_toggle_single_top_header(test_client):
+    # 1. theme.js asset is served
+    res_js = test_client.get("/static/js/theme.js")
+    assert res_js.status_code == 200
+    assert b"connecthub_theme" in res_js.data
+    assert b"themeToggleBtn" in res_js.data
+
+    # 2. Login as user and access dashboard
+    user = User(username="themeuser", email="themeuser@test.com", is_active=True)
+    user.set_password("SecurePassword123!")
+    profile = UserProfile(user=user)
+    db.session.add(user)
+    db.session.add(profile)
+    db.session.commit()
+
+    login_res = test_client.post("/auth/login", data={"email": "themeuser@test.com", "password": "SecurePassword123!"}, follow_redirects=True)
+    assert login_res.status_code == 200
+
+    res_dash = test_client.get("/dashboard")
+    assert res_dash.status_code == 200
+
+    dash_html = res_dash.data.decode("utf-8")
+
+    # Exactly one theme toggle button in the entire page, positioned in the top header
+    assert dash_html.count('id="themeToggleBtn"') == 1
+    assert "theme-icon-dark" in dash_html
+    assert "theme-icon-light" in dash_html
+
+    # Ensure duplicate toggles are NOT in the sidebar or dropdown
+    assert "sidebarThemeToggle" not in dash_html
+    assert "dropdownThemeToggle" not in dash_html
+
+    # Ensure unauthenticated pages (login, register, forgot-password) do NOT have theme toggle
+    res_login = test_client.get("/auth/login")
+    assert b"themeToggleBtn" not in res_login.data
+    res_register = test_client.get("/auth/register")
+    assert b"themeToggleBtn" not in res_register.data
+    res_forgot = test_client.get("/auth/forgot-password")
+    assert b"themeToggleBtn" not in res_forgot.data
+
