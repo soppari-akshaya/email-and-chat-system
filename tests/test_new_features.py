@@ -97,13 +97,36 @@ def test_google_login_flow(test_client, monkeypatch):
     assert user.profile.google_id == "google-uid-test-12345"
 
     # 4. Existing Google user login (should not create duplicate user)
-    res_existing = test_client.post("/auth/google-login", json={"id_token": "valid-google-id-token"})
+    res_existing = test_client.post("/auth/google-login", json={"idToken": "valid-google-id-token"})
     assert res_existing.status_code == 200
     assert res_existing.get_json()["success"] is True
 
     # Count of users with this email must still be 1
     users = User.query.filter_by(email="testgoogleuser@gmail.com").all()
     assert len(users) == 1
+
+    # 5. Root /google-login endpoint works identically
+    res_root = test_client.post("/google-login", json={"id_token": "valid-google-id-token"})
+    assert res_root.status_code == 200
+    assert res_root.get_json()["success"] is True
+
+    # 6. Authorization header format
+    res_auth_header = test_client.post("/auth/google-login", headers={"Authorization": "Bearer valid-google-id-token"})
+    assert res_auth_header.status_code == 200
+    assert res_auth_header.get_json()["success"] is True
+
+    # 7. Check Cross-Origin-Opener-Policy response header
+    res_login_page = test_client.get("/auth/login")
+    assert res_login_page.headers.get("Cross-Origin-Opener-Policy") == "same-origin-allow-popups"
+
+    # 8. Inactive user rejection
+    user = User.query.filter_by(email="testgoogleuser@gmail.com").first()
+    user.is_active = False
+    db.session.commit()
+
+    res_inactive = test_client.post("/auth/google-login", json={"id_token": "valid-google-id-token"})
+    assert res_inactive.status_code == 403
+    assert res_inactive.get_json()["success"] is False
 
 def test_push_subscription_model():
     sub = PushSubscription(

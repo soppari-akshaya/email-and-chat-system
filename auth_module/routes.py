@@ -335,9 +335,9 @@ def profile_image(user_id):
     return send_file(BytesIO(file_bytes), mimetype=mime)
 
 
-# --------------------------------------------------
+
 # FIREBASE AUTHENTICATION (FORGOT PASSWORD & GOOGLE SIGN-IN)
-# --------------------------------------------------
+
 
 @auth_bp.route("/firebase-config", methods=["GET"])
 def firebase_config():
@@ -372,13 +372,20 @@ def google_login():
     Verifies the Firebase ID token cryptographically on the Flask backend.
     """
     data = request.get_json(silent=True) or {}
-    id_token = data.get("id_token")
+    id_token = data.get("id_token") or data.get("idToken") or data.get("token")
     if not id_token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            id_token = auth_header[7:].strip()
+
+    if not id_token:
+        current_app.logger.warning("Google login attempted without ID token in request body or headers.")
         return jsonify({"success": False, "error": "Missing Firebase ID token."}), 400
 
     from auth_module.firebase_service import verify_firebase_id_token
     user_info = verify_firebase_id_token(id_token)
     if not user_info:
+        current_app.logger.warning("Google login ID token verification rejected.")
         return jsonify({"success": False, "error": "Unable to verify Google credentials. Please try again."}), 401
 
     email = user_info.get("email", "").strip().lower()

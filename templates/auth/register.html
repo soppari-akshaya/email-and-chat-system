@@ -201,7 +201,10 @@
                     "Content-Type": "application/json",
                     "X-CSRFToken": csrfToken
                 },
-                body: JSON.stringify({ id_token: idToken })
+                body: JSON.stringify({
+                    id_token: idToken,
+                    idToken: idToken
+                })
             });
 
             const data = await resp.json();

@@ -163,16 +163,16 @@ def create_app(config_class=Config, test_config=None):
     if test_config:
         app.config.update(test_config)
 
-    # --------------------------------------------------
+    
     # CREATE UPLOAD DIRECTORIES
-    # --------------------------------------------------
+    
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
     for folder in ["email_attachments", "chat_attachments", "profiles"]:
         os.makedirs(os.path.join(app.config["UPLOAD_FOLDER"], folder), exist_ok=True)
 
-    # --------------------------------------------------
+    
     # INITIALIZE FLASK EXTENSIONS
-    # --------------------------------------------------
+    
     db.init_app(app)
     login_manager.init_app(app)
 
@@ -188,17 +188,17 @@ def create_app(config_class=Config, test_config=None):
     login_manager.login_message = "Please log in first."
     login_manager.login_message_category = "warning"
 
-    # --------------------------------------------------
+    
     # IMPORT DATABASE MODELS
-    # --------------------------------------------------
+    
     from auth_module.models import User, UserProfile
     from email_module.models import Email, EmailAttachment
     from chat_module.models import Conversation, ConversationMember, ChatMessage
     from notification_module.models import Notification, PushSubscription
 
-    # --------------------------------------------------
+    
     # REGISTER BLUEPRINTS
-    # --------------------------------------------------
+    
     from auth_module import auth_bp
     app.register_blueprint(auth_bp)
 
@@ -214,14 +214,14 @@ def create_app(config_class=Config, test_config=None):
     from admin_module import admin_bp
     app.register_blueprint(admin_bp)
 
-    # --------------------------------------------------
+    
     # REGISTER SOCKET.IO EVENTS
-    # --------------------------------------------------
+    
     import chat_module.events
 
-    # --------------------------------------------------
+    
     # CONTEXT PROCESSORS (GLOBAL TEMPLATE VARIABLES)
-    # --------------------------------------------------
+    
     @app.context_processor
     def inject_global_data():
         if current_user.is_authenticated:
@@ -247,9 +247,20 @@ def create_app(config_class=Config, test_config=None):
             "is_admin": False
         }
 
-    # --------------------------------------------------
+    
     # ROUTES
-    # --------------------------------------------------
+    
+    @app.after_request
+    def set_security_headers(response):
+        # Allow cross-origin popup opener communication for Google/Firebase authentication
+        response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
+        return response
+
+    @app.route("/google-login", methods=["POST"])
+    def root_google_login():
+        from auth_module.routes import google_login
+        return google_login()
+
     @app.route("/sw.js")
     def service_worker():
         response = make_response(send_from_directory(os.path.join(app.root_path, "static"), "sw.js"))
@@ -360,9 +371,9 @@ def create_app(config_class=Config, test_config=None):
             return f"<h1>Server Error (500)</h1><pre>{tb}</pre>", 500
         return f"<h1>Internal Server Error</h1><pre style='display:none'>{tb}</pre>", 500
 
-    # --------------------------------------------------
+    
     # CREATE DATABASE TABLES AND RUN AUTO-MIGRATION
-    # --------------------------------------------------
+    
     with app.app_context():
         db.create_all()
         ensure_db_schema(app)

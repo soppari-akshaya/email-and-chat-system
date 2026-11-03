@@ -26,35 +26,47 @@ def initialize_firebase_admin(app=None):
 
         cert_path = None
         if app and "FIREBASE_SERVICE_ACCOUNT_KEY" in app.config:
-            cert_path = app.config["FIREBASE_SERVICE_ACCOUNT_KEY"]
+            cert_path = app.config.get("FIREBASE_SERVICE_ACCOUNT_KEY")
         else:
-            cert_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY")
+            try:
+                cert_path = current_app.config.get("FIREBASE_SERVICE_ACCOUNT_KEY")
+            except Exception:
+                cert_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY")
 
         cert_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
 
+        project_id = None
+        if app and "FIREBASE_PROJECT_ID" in app.config:
+            project_id = app.config.get("FIREBASE_PROJECT_ID")
+        else:
+            try:
+                project_id = current_app.config.get("FIREBASE_PROJECT_ID")
+            except Exception:
+                project_id = os.getenv("FIREBASE_PROJECT_ID", "email-and-chat-system")
+        if not project_id:
+            project_id = "email-and-chat-system"
+
         if cert_path and os.path.exists(cert_path):
             cred = credentials.Certificate(cert_path)
-            firebase_admin.initialize_app(cred)
+            firebase_admin.initialize_app(cred, options={"projectId": project_id})
             _firebase_initialized = True
             logger.info("Firebase Admin SDK initialized successfully via certificate file.")
             return True
         elif cert_json:
             cred_dict = json.loads(cert_json)
             cred = credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred)
+            firebase_admin.initialize_app(cred, options={"projectId": project_id})
             _firebase_initialized = True
             logger.info("Firebase Admin SDK initialized successfully via JSON credentials.")
             return True
         else:
-            project_id = (app.config.get("FIREBASE_PROJECT_ID") if app else None) or os.getenv("FIREBASE_PROJECT_ID")
-            if project_id:
-                try:
-                    firebase_admin.initialize_app(options={"projectId": project_id})
-                    _firebase_initialized = True
-                    logger.info(f"Firebase Admin SDK initialized with projectId '{project_id}'.")
-                    return True
-                except Exception as ex:
-                    logger.warning(f"Firebase default app init warning: {ex}")
+            try:
+                firebase_admin.initialize_app(options={"projectId": project_id})
+                _firebase_initialized = True
+                logger.info(f"Firebase Admin SDK initialized with projectId '{project_id}'.")
+                return True
+            except Exception as ex:
+                logger.warning(f"Firebase default app init warning: {ex}")
     except Exception as e:
         logger.warning(f"Firebase Admin SDK initialization skipped or encountered: {e}")
 
@@ -64,7 +76,10 @@ def initialize_firebase_admin(app=None):
 def verify_firebase_id_token(id_token):
     """
     Verify an incoming Firebase ID token from Google Sign-In.
-    Uses Firebase Admin SDK with automatic fallback to Google tokeninfo API.
+    Uses a multi-layered verification strategy:
+    1. Firebase Admin SDK verify_id_token()
+    2. Google Identity Toolkit REST API accounts:lookup (official Firebase Auth endpoint)
+    3. Direct RS256 JWT signature verification using Google's public certificates
     Returns decoded user dictionary or None.
     """
     if not id_token or not isinstance(id_token, str):
@@ -74,6 +89,12 @@ def verify_firebase_id_token(id_token):
     if not id_token:
         return None
 
+    project_id = "email-and-chat-system"
+    try:
+        project_id = current_app.config.get("FIREBASE_PROJECT_ID") or project_id
+    except Exception:
+        project_id = os.getenv("FIREBASE_PROJECT_ID", project_id)
+
     # 1. Try Firebase Admin SDK verification
     try:
         initialize_firebase_admin()
@@ -81,39 +102,90 @@ def verify_firebase_id_token(id_token):
         from firebase_admin import auth as fb_auth
 
         if firebase_admin._apps:
-            decoded = fb_auth.verify_id_token(id_token)
+            decoded = fb_auth.verify_id_token(id_token, clock_skew_seconds=10)
             if decoded and decoded.get("email"):
                 return {
-                    "uid": decoded.get("uid"),
+                    "uid": decoded.get("uid") or decoded.get("sub"),
                     "email": decoded.get("email").strip().lower(),
                     "name": decoded.get("name") or decoded.get("email").split("@")[0],
                     "picture": decoded.get("picture"),
                     "email_verified": decoded.get("email_verified", True)
                 }
     except Exception as e:
-        logger.info(f"Firebase Admin SDK verification attempt: {e}; trying Google tokeninfo fallback...")
+        logger.info(f"Firebase Admin SDK verification attempt: {e}; trying Google Identity Toolkit lookup...")
 
-    # 2. Resilient Fallback: Google Tokeninfo Endpoint verification
+    # 2. Google Identity Toolkit REST API verification (accounts:lookup)
+    api_key = "AIzaSyCkBsSv7BacOOHT7d68Zsh7t2GgizziHvk"
     try:
-        url = f"https://oauth2.googleapis.com/tokeninfo?id_token={urllib.parse.quote(id_token)}"
-        req = urllib.request.Request(url, headers={"User-Agent": "ConnectHub-Auth/1.0"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            if resp.getcode() == 200:
-                data = json.loads(resp.read().decode("utf-8"))
-                email = data.get("email")
-                if email:
-                    # Validate that email is verified by Google
-                    email_verified = data.get("email_verified")
-                    if str(email_verified).lower() in ("true", "1", "yes"):
-                        return {
-                            "uid": data.get("sub") or data.get("user_id"),
-                            "email": email.strip().lower(),
-                            "name": data.get("name") or email.split("@")[0],
-                            "picture": data.get("picture"),
-                            "email_verified": True
-                        }
+        api_key = current_app.config.get("FIREBASE_API_KEY") or api_key
+    except Exception:
+        api_key = os.getenv("FIREBASE_API_KEY", api_key)
+
+    if api_key:
+        try:
+            url = f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={urllib.parse.quote(api_key)}"
+            req_data = json.dumps({"idToken": id_token}).encode("utf-8")
+            req = urllib.request.Request(
+                url,
+                data=req_data,
+                headers={
+                    "Content-Type": "application/json",
+                    "User-Agent": "ConnectHub-Auth/1.0"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.getcode() == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    users = data.get("users") or []
+                    if users and len(users) > 0:
+                        u = users[0]
+                        email = (u.get("email") or "").strip().lower()
+                        if email:
+                            return {
+                                "uid": u.get("localId"),
+                                "email": email,
+                                "name": u.get("displayName") or email.split("@")[0],
+                                "picture": u.get("photoUrl"),
+                                "email_verified": u.get("emailVerified", True)
+                            }
+        except Exception as e:
+            logger.info(f"Google Identity Toolkit accounts:lookup attempt: {e}; trying public cert verification...")
+
+    # 3. Cryptographic RS256 JWT verification using Google public x509 certificates
+    try:
+        import jwt
+        unverified_header = jwt.get_unverified_header(id_token)
+        kid = unverified_header.get("kid")
+        alg = unverified_header.get("alg")
+        if alg == "RS256" and kid:
+            certs_url = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+            creq = urllib.request.Request(certs_url, headers={"User-Agent": "ConnectHub-Auth/1.0"})
+            with urllib.request.urlopen(creq, timeout=10) as cresp:
+                if cresp.getcode() == 200:
+                    public_certs = json.loads(cresp.read().decode("utf-8"))
+                    cert_pem = public_certs.get(kid)
+                    if cert_pem:
+                        expected_aud = project_id or "email-and-chat-system"
+                        expected_iss = f"https://securetoken.google.com/{expected_aud}"
+                        decoded = jwt.decode(
+                            id_token,
+                            cert_pem,
+                            algorithms=["RS256"],
+                            audience=expected_aud,
+                            issuer=expected_iss,
+                            options={"verify_exp": True}
+                        )
+                        email = (decoded.get("email") or "").strip().lower()
+                        if email:
+                            return {
+                                "uid": decoded.get("user_id") or decoded.get("sub"),
+                                "email": email,
+                                "name": decoded.get("name") or email.split("@")[0],
+                                "picture": decoded.get("picture"),
+                                "email_verified": decoded.get("email_verified", True)
+                            }
     except Exception as e:
-        logger.warning(f"Google tokeninfo endpoint token verification failed: {e}")
+        logger.warning(f"Public cert JWT token verification failed: {e}")
 
     return None
 
