@@ -22,12 +22,23 @@ def test_routes_exist(test_client):
     assert res.status_code == 200
     assert b"Reset Password" in res.data or b"Forgot Password" in res.data
 
-    # Test firebase config endpoint
+    # Test firebase config endpoint with user credentials
     res = test_client.get("/auth/firebase-config")
     assert res.status_code == 200
     data = res.get_json()
-    assert "apiKey" in data
-    assert "projectId" in data
+    assert data["apiKey"] == "AIzaSyCkBsSv7BacOOHT7d68Zsh7t2GgizziHvk"
+    assert data["authDomain"] == "email-and-chat-system.firebaseapp.com"
+    assert data["projectId"] == "email-and-chat-system"
+    assert data["storageBucket"] == "email-and-chat-system.firebasestorage.app"
+    assert data["messagingSenderId"] == "511432167350"
+    assert data["appId"] == "1:511432167350:web:1d4cfe1ae26f7ee9133b17"
+    assert data["measurementId"] == "G-3V04PXS0Y6"
+
+    # Test static theme.js is served properly
+    res_theme = test_client.get("/static/js/theme.js")
+    assert res_theme.status_code == 200
+    assert b"connecthub_theme" in res_theme.data
+    assert b"toggleConnectHubTheme" in res_theme.data
 
     # Test vapid public key endpoint
     res = test_client.get("/notifications/vapid-public-key")

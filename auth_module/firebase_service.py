@@ -120,22 +120,32 @@ def verify_firebase_id_token(id_token):
 
 def get_firebase_client_config():
     """Retrieve public Firebase configuration for client-side JavaScript SDK."""
+    default_api_key = "AIzaSyCkBsSv7BacOOHT7d68Zsh7t2GgizziHvk"
+    default_auth_domain = "email-and-chat-system.firebaseapp.com"
+    default_project_id = "email-and-chat-system"
+    default_storage_bucket = "email-and-chat-system.firebasestorage.app"
+    default_messaging_sender_id = "511432167350"
+    default_app_id = "1:511432167350:web:1d4cfe1ae26f7ee9133b17"
+    default_measurement_id = "G-3V04PXS0Y6"
+
     try:
         return {
-            "apiKey": current_app.config.get("FIREBASE_API_KEY", ""),
-            "authDomain": current_app.config.get("FIREBASE_AUTH_DOMAIN", ""),
-            "projectId": current_app.config.get("FIREBASE_PROJECT_ID", ""),
-            "storageBucket": current_app.config.get("FIREBASE_STORAGE_BUCKET", ""),
-            "messagingSenderId": current_app.config.get("FIREBASE_MESSAGING_SENDER_ID", ""),
-            "appId": current_app.config.get("FIREBASE_APP_ID", "")
+            "apiKey": current_app.config.get("FIREBASE_API_KEY") or default_api_key,
+            "authDomain": current_app.config.get("FIREBASE_AUTH_DOMAIN") or default_auth_domain,
+            "projectId": current_app.config.get("FIREBASE_PROJECT_ID") or default_project_id,
+            "storageBucket": current_app.config.get("FIREBASE_STORAGE_BUCKET") or default_storage_bucket,
+            "messagingSenderId": current_app.config.get("FIREBASE_MESSAGING_SENDER_ID") or default_messaging_sender_id,
+            "appId": current_app.config.get("FIREBASE_APP_ID") or default_app_id,
+            "measurementId": current_app.config.get("FIREBASE_MEASUREMENT_ID") or default_measurement_id
         }
     except RuntimeError:
         return {
-            "apiKey": os.getenv("FIREBASE_API_KEY", ""),
-            "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN", ""),
-            "projectId": os.getenv("FIREBASE_PROJECT_ID", ""),
-            "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET", ""),
-            "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID", ""),
-            "appId": os.getenv("FIREBASE_APP_ID", "")
+            "apiKey": os.getenv("FIREBASE_API_KEY", default_api_key),
+            "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN", default_auth_domain),
+            "projectId": os.getenv("FIREBASE_PROJECT_ID", default_project_id),
+            "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET", default_storage_bucket),
+            "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID", default_messaging_sender_id),
+            "appId": os.getenv("FIREBASE_APP_ID", default_app_id),
+            "measurementId": os.getenv("FIREBASE_MEASUREMENT_ID", default_measurement_id)
         }
 

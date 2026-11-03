@@ -61,13 +61,38 @@ class Config:
     # --------------------------------------------------
     # FIREBASE AUTHENTICATION CONFIGURATION
     # --------------------------------------------------
-    FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY", "")
-    FIREBASE_AUTH_DOMAIN = os.getenv("FIREBASE_AUTH_DOMAIN", "")
-    FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "")
-    FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET", "")
-    FIREBASE_MESSAGING_SENDER_ID = os.getenv("FIREBASE_MESSAGING_SENDER_ID", "")
-    FIREBASE_APP_ID = os.getenv("FIREBASE_APP_ID", "")
-    FIREBASE_SERVICE_ACCOUNT_KEY = os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY", "")
+    FIREBASE_API_KEY = os.getenv(
+        "FIREBASE_API_KEY",
+        "AIzaSyCkBsSv7BacOOHT7d68Zsh7t2GgizziHvk"
+    )
+    FIREBASE_AUTH_DOMAIN = os.getenv(
+        "FIREBASE_AUTH_DOMAIN",
+        "email-and-chat-system.firebaseapp.com"
+    )
+    FIREBASE_PROJECT_ID = os.getenv(
+        "FIREBASE_PROJECT_ID",
+        "email-and-chat-system"
+    )
+    FIREBASE_STORAGE_BUCKET = os.getenv(
+        "FIREBASE_STORAGE_BUCKET",
+        "email-and-chat-system.firebasestorage.app"
+    )
+    FIREBASE_MESSAGING_SENDER_ID = os.getenv(
+        "FIREBASE_MESSAGING_SENDER_ID",
+        "511432167350"
+    )
+    FIREBASE_APP_ID = os.getenv(
+        "FIREBASE_APP_ID",
+        "1:511432167350:web:1d4cfe1ae26f7ee9133b17"
+    )
+    FIREBASE_MEASUREMENT_ID = os.getenv(
+        "FIREBASE_MEASUREMENT_ID",
+        "G-3V04PXS0Y6"
+    )
+    FIREBASE_SERVICE_ACCOUNT_KEY = os.getenv(
+        "FIREBASE_SERVICE_ACCOUNT_KEY",
+        ""
+    )
 
     # --------------------------------------------------
     # WEB PUSH & VAPID CONFIGURATION
