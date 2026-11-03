@@ -161,14 +161,14 @@
                                    class="list-group-item list-group-item-action px-0 py-2 d-flex align-items-center justify-content-between border-0">
                                     <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
                                         <div class="user-avatar" style="width: 28px; height: 28px; font-size: 11px;">
-                                            {{ mail.sender.username[:1]|upper if mail.sender else 'U' }}
+                                            {{ ((mail.sender.username if mail.sender else 'U') or 'U')[:1]|upper }}
                                         </div>
                                         <div class="overflow-hidden">
                                             <div class="text-truncate fw-semibold {% if not mail.is_read %}text-primary{% else %}text-dark{% endif %}" style="font-size: 13px;">
                                                 {{ mail.subject or '(No Subject)' }}
                                             </div>
                                             <div class="text-muted text-truncate" style="font-size: 11px;">
-                                                {{ mail.sender.username if mail.sender else 'User' }} &bull; {{ mail.body[:40] if mail.body else '' }}
+                                                {{ (mail.sender.username if mail.sender else 'User') or 'User' }} &bull; {{ mail.body[:40] if mail.body else '' }}
                                             </div>
                                         </div>
                                     </div>
@@ -206,36 +206,52 @@
                     {% if recent_conversations %}
                         <div class="list-group list-group-flush">
                             {% for conv in recent_conversations %}
-                                {% set partner = namespace(name='Group Chat') %}
+                                {% set partner = namespace(name='Group Chat', user_id=None) %}
                                 {% if not conv.is_group %}
                                     {% for member in conv.members %}
                                         {% if member.user_id != current_user.id %}
-                                            {% set partner.name = member.user.username if member.user else 'User' %}
+                                            {% set partner.name = (member.user.username if member.user else 'User') or 'User' %}
+                                            {% set partner.user_id = member.user_id %}
                                         {% endif %}
                                     {% endfor %}
+                                    {% if not partner.user_id and conv.members %}
+                                        {% set partner.user_id = conv.members[0].user_id %}
+                                        {% set partner.name = (conv.members[0].user.username if conv.members[0].user else 'User') or 'User' %}
+                                    {% endif %}
                                 {% else %}
                                     {% set partner.name = conv.name or 'Group Chat' %}
                                 {% endif %}
 
-                                <a href="{% if conv.is_group %}{{ url_for('chat.group_chat', conversation_id=conv.id) }}{% else %}{{ url_for('chat.private_chat', user_id=conv.members[0].user_id if conv.members[0].user_id != current_user.id else conv.members[1].user_id) }}{% endif %}"
+                                <a href="{% if conv.is_group %}{{ url_for('chat.group_chat', conversation_id=conv.id) }}{% elif partner.user_id %}{{ url_for('chat.private_chat', user_id=partner.user_id) }}{% else %}{{ url_for('chat.index') }}{% endif %}"
                                    class="list-group-item list-group-item-action px-0 py-2 d-flex align-items-center justify-content-between border-0">
                                     <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
                                         <div class="user-avatar" style="width: 28px; height: 28px; font-size: 11px; background: {% if conv.is_group %}#0ea5e9{% else %}var(--primary){% endif %};">
                                             {% if conv.is_group %}
                                                 <i class="bi bi-people-fill"></i>
                                             {% else %}
-                                                {{ partner.name[:1]|upper }}
+                                                {{ (partner.name or 'U')[:1]|upper }}
                                             {% endif %}
                                         </div>
                                         <div class="overflow-hidden">
                                             <div class="text-truncate fw-semibold text-dark" style="font-size: 13px;">
-                                                {{ partner.name }}
+                                                {{ partner.name or 'Conversation' }}
                                                 {% if conv.is_group %}
                                                     <span class="badge bg-light text-secondary ms-1" style="font-size: 10px;">Group</span>
                                                 {% endif %}
                                             </div>
                                             <div class="text-muted text-truncate" style="font-size: 11px;">
-                                                {{ conv.messages[-1].content if conv.messages else 'No messages yet' }}
+                                                {% if conv.messages %}
+                                                    {% set last_m = conv.messages[-1] %}
+                                                    {% if last_m.is_deleted %}
+                                                        <em>Deleted message</em>
+                                                    {% elif last_m.attachment_name %}
+                                                        📎 {{ last_m.attachment_name }}
+                                                    {% else %}
+                                                        {{ last_m.content or 'Empty message' }}
+                                                    {% endif %}
+                                                {% else %}
+                                                    No messages yet
+                                                {% endif %}
                                             </div>
                                         </div>
                                     </div>

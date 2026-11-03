@@ -166,38 +166,74 @@ def create_app(config_class=Config, test_config=None):
     @app.route("/dashboard")
     @login_required
     def dashboard():
-        unread_notifications = Notification.query.filter_by(
-            recipient_id=current_user.id,
-            is_read=False
-        ).count()
+        try:
+            unread_notifications = Notification.query.filter_by(
+                recipient_id=current_user.id,
+                is_read=False
+            ).count()
+        except Exception as e:
+            app.logger.warning(f"Error fetching unread notifications: {e}")
+            unread_notifications = 0
 
-        unread_emails = Email.query.filter_by(
-            recipient_id=current_user.id,
-            folder="inbox",
-            is_read=False
-        ).count()
+        try:
+            unread_emails = Email.query.filter_by(
+                recipient_id=current_user.id,
+                folder="inbox",
+                is_read=False
+            ).count()
+        except Exception as e:
+            app.logger.warning(f"Error fetching unread emails: {e}")
+            unread_emails = 0
 
-        sent_emails_count = Email.query.filter_by(
-            sender_id=current_user.id,
-            folder="sent"
-        ).count()
+        try:
+            sent_emails_count = Email.query.filter_by(
+                sender_id=current_user.id,
+                folder="sent"
+            ).count()
+        except Exception as e:
+            app.logger.warning(f"Error fetching sent emails count: {e}")
+            sent_emails_count = 0
 
-        memberships = ConversationMember.query.filter_by(
-            user_id=current_user.id
-        ).all()
-        active_chats_count = len(memberships)
+        try:
+            memberships = ConversationMember.query.filter_by(
+                user_id=current_user.id
+            ).all()
+            active_chats_count = len(memberships)
+        except Exception as e:
+            app.logger.warning(f"Error fetching memberships: {e}")
+            memberships = []
+            active_chats_count = 0
 
-        recent_emails = Email.query.filter_by(
-            recipient_id=current_user.id,
-            folder="inbox"
-        ).order_by(Email.created_at.desc()).limit(5).all()
+        try:
+            recent_emails = Email.query.filter_by(
+                recipient_id=current_user.id,
+                folder="inbox"
+            ).order_by(Email.created_at.desc()).limit(5).all()
+        except Exception as e:
+            app.logger.warning(f"Error fetching recent emails: {e}")
+            recent_emails = []
 
-        recent_conversations = [m.conversation for m in memberships]
-        recent_conversations.sort(
-            key=lambda c: c.last_message_at or c.created_at,
-            reverse=True
-        )
-        recent_conversations = recent_conversations[:5]
+        try:
+            from datetime import timezone
+            recent_conversations = [
+                m.conversation for m in memberships if m.conversation is not None
+            ]
+
+            def get_conv_timestamp(conv):
+                if not conv:
+                    return datetime.min.replace(tzinfo=timezone.utc)
+                val = conv.last_message_at or conv.created_at
+                if not val:
+                    return datetime.min.replace(tzinfo=timezone.utc)
+                if getattr(val, "tzinfo", None) is None:
+                    return val.replace(tzinfo=timezone.utc)
+                return val.astimezone(timezone.utc)
+
+            recent_conversations.sort(key=get_conv_timestamp, reverse=True)
+            recent_conversations = recent_conversations[:5]
+        except Exception as e:
+            app.logger.warning(f"Error sorting recent conversations: {e}")
+            recent_conversations = []
 
         return render_template(
             "dashboard.html",
@@ -207,8 +243,8 @@ def create_app(config_class=Config, test_config=None):
             active_chats_count=active_chats_count,
             recent_emails=recent_emails,
             recent_conversations=recent_conversations,
-            username=current_user.username,
-            email=current_user.email
+            username=current_user.username or "User",
+            email=current_user.email or ""
         )
 
     @app.errorhandler(500)
