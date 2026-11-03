@@ -192,7 +192,7 @@
                                                 {% if partner.user.profile and partner.user.profile.profile_image %}
                                                     <img src="{{ url_for('auth.profile_image', user_id=partner.user.id) }}" class="rounded-circle w-100 h-100 object-fit-cover">
                                                 {% else %}
-                                                    {{ partner.user.username[:1]|upper }}
+                                                    {{ (partner.user.username or 'U')[:1]|upper }}
                                                 {% endif %}
                                             </div>
                                             <span class="status-dot offline position-absolute bottom-0 end-0 border border-2 border-white" id="online-dot-{{ partner.user.id }}"></span>
@@ -232,7 +232,7 @@
                                         {% if user.profile and user.profile.profile_image %}
                                             <img src="{{ url_for('auth.profile_image', user_id=user.id) }}" class="rounded-circle w-100 h-100 object-fit-cover">
                                         {% else %}
-                                            {{ user.username[:1]|upper }}
+                                            {{ (user.username or 'U')[:1]|upper }}
                                         {% endif %}
                                     </div>
                                     <span class="status-dot {% if user.online_status == 'online' %}online{% else %}offline{% endif %} position-absolute bottom-0 end-0 border border-2 border-white" id="people-dot-{{ user.id }}"></span>
@@ -328,7 +328,7 @@
                                             {% if u.profile and u.profile.profile_image %}
                                                 <img src="{{ url_for('auth.profile_image', user_id=u.id) }}" class="rounded-circle w-100 h-100 object-fit-cover">
                                             {% else %}
-                                                {{ u.username[:1]|upper }}
+                                                {{ (u.username or 'U')[:1]|upper }}
                                             {% endif %}
                                         </span>
                                         <span class="fw-medium text-dark" style="font-size: 13px;">{{ u.username }}</span>

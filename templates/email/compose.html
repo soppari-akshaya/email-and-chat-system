@@ -10,7 +10,7 @@
         <div class="hub-card-header">
             <h5 class="hub-card-title">
                 <i class="bi bi-pencil-square me-2 text-primary"></i>
-                {% if prefill.draft_id %}Edit Draft{% elif prefill.subject.startswith('Re:') %}Reply Email{% elif prefill.subject.startswith('Fwd:') %}Forward Email{% else %}New Message{% endif %}
+                {% if prefill.draft_id %}Edit Draft{% elif prefill.subject and prefill.subject.startswith('Re:') %}Reply Email{% elif prefill.subject and prefill.subject.startswith('Fwd:') %}Forward Email{% else %}New Message{% endif %}
             </h5>
             <a href="{{ url_for('email.inbox') }}" class="btn btn-sm btn-link text-muted p-0" title="Close">
                 <i class="bi bi-x-lg fs-6"></i>

@@ -211,6 +211,20 @@ def create_app(config_class=Config, test_config=None):
             email=current_user.email
         )
 
+    @app.errorhandler(500)
+    @app.errorhandler(Exception)
+    def handle_unhandled_exception(e):
+        import traceback
+        from werkzeug.exceptions import HTTPException
+        if isinstance(e, HTTPException):
+            return e
+        tb = traceback.format_exc()
+        app.logger.error(f"Unhandled Exception: {tb}")
+        from flask import request
+        if request.args.get("show_error") == "1":
+            return f"<h1>Server Error (500)</h1><pre>{tb}</pre>", 500
+        return f"<h1>Internal Server Error</h1><pre style='display:none'>{tb}</pre>", 500
+
     # --------------------------------------------------
     # CREATE DATABASE TABLES AND RUN AUTO-MIGRATION
     # --------------------------------------------------
