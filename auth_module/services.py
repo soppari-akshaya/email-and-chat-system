@@ -8,7 +8,11 @@ def register_user(username, email, password):
 
     user = User(
         username=username,
-        email=email
+        email=email,
+        role="user",
+        is_active=True,
+        is_verified=False,
+        online_status="offline"
     )
 
     user.set_password(password)

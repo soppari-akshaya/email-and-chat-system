@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - Admin{% endblock %}
+{% block page_title %}User Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <!-- TOOLBAR & FILTERS -->
+    <div class="hub-card mb-3 p-3">
+        <div class="row g-2 align-items-center justify-content-between">
+            <div class="col-md-8">
+                <form method="GET" action="{{ url_for('admin.users') }}" class="d-flex flex-wrap align-items-center gap-2">
+                    <div class="input-group" style="max-width: 280px;">
+                        <span class="input-group-text bg-light border-end-0 text-muted" style="border-radius: 10px 0 0 10px;">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text"
+                               name="q"
+                               class="form-control border-start-0 ps-0 bg-light"
+                               placeholder="Search users..."
+                               value="{{ search }}"
+                               style="border-radius: 0 10px 10px 0; font-size: 13px;">
+                    </div>
+
+                    <!-- Role Filter -->
+                    <select name="role" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                        <option value="">All Roles</option>
+                        <option value="user" {% if role_filter == 'user' %}selected{% endif %}>Users</option>
+                        <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Admins</option>
+                    </select>
+
+                    <!-- Status Filter -->
+                    <select name="status" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                        <option value="">All Statuses</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active Only</option>
+                        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive Only</option>
+                    </select>
+
+                    {% if search or role_filter or status_filter %}
+                        <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-link text-muted">Clear</a>
+                    {% endif %}
+                </form>
+            </div>
+
+            <div class="col-md-4 text-md-end text-muted small">
+                Total Users: <strong class="text-dark">{{ users|length }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- USERS TABLE -->
+    <div class="hub-card overflow-hidden">
+        <div class="table-responsive">
+            <table class="hub-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Registered</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="user-avatar" style="width: 32px; height: 32px; font-size: 12px;">
+                                        {% if u.profile and u.profile.profile_image %}
+                                            <img src="{{ url_for('auth.profile_image', user_id=u.id) }}" class="rounded-circle w-100 h-100 object-fit-cover">
+                                        {% else %}
+                                            {{ u.username[:1]|upper }}
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-dark">{{ u.username }}</div>
+                                        <small class="text-muted">{{ u.profile.full_name if (u.profile and u.profile.full_name) else '' }}</small>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <td class="small">{{ u.email }}</td>
+
+                            <td>
+                                <span class="badge badge-role {% if u.role == 'admin' %}badge-admin{% else %}badge-user{% endif %}">
+                                    {{ u.role }}
+                                </span>
+                            </td>
+
+                            <td>
+                                <span class="badge badge-role {% if u.is_active %}badge-active{% else %}badge-inactive{% endif %}">
+                                    {{ 'Active' if u.is_active else 'Deactivated' }}
+                                </span>
+                            </td>
+
+                            <td class="small text-muted">
+                                {{ u.created_at.strftime('%d %b %Y') if u.created_at else '' }}
+                            </td>
+
+                            <td class="text-center">
+                                {% if u.id != current_user.id %}
+                                    <div class="btn-group btn-group-sm">
+                                        <!-- Toggle Status -->
+                                        <form method="POST" action="{{ url_for('admin.toggle_user_status', user_id=u.id) }}" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-outline-secondary py-1 px-2"
+                                                    title="{% if u.is_active %}Deactivate Account{% else %}Activate Account{% endif %}">
+                                                <i class="bi {% if u.is_active %}bi-person-slash text-danger{% else %}bi-person-check text-success{% endif %}"></i>
+                                            </button>
+                                        </form>
+
+                                        <!-- Toggle Role -->
+                                        <form method="POST" action="{{ url_for('admin.toggle_user_role', user_id=u.id) }}" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-outline-secondary py-1 px-2"
+                                                    title="{% if u.role == 'admin' %}Demote to User{% else %}Promote to Admin{% endif %}">
+                                                <i class="bi bi-shield-lock {% if u.role == 'admin' %}text-warning{% else %}text-secondary{% endif %}"></i>
+                                            </button>
+                                        </form>
+
+                                        <!-- Delete User -->
+                                        <form method="POST" action="{{ url_for('admin.delete_user', user_id=u.id) }}" class="d-inline"
+                                              onsubmit="return confirm('Delete user {{ u.username }} and all associated data permanently?');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-outline-danger py-1 px-2" title="Delete User Permanently">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                {% else %}
+                                    <span class="badge bg-light text-muted border">Current Admin</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">No users matched your query.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+

@@ -25,6 +25,7 @@ class User(UserMixin, db.Model):
 
     created_at = db.Column(db.DateTime(timezone=True), default=utc_now)
     last_seen = db.Column(db.DateTime(timezone=True), nullable=True)
+    online_status = db.Column(db.String(20), default="offline", nullable=False)
 
     profile = db.relationship(
         "UserProfile",
@@ -32,6 +33,16 @@ class User(UserMixin, db.Model):
         uselist=False,
         cascade="all, delete-orphan"
     )
+
+    @property
+    def is_online(self):
+        return self.online_status == "online"
+
+    @property
+    def profile_image_url(self):
+        if self.profile and self.profile.profile_image:
+            return f"/auth/profile-image/{self.id}"
+        return None
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -59,6 +70,7 @@ class UserProfile(db.Model):
     bio = db.Column(db.String(300), nullable=True)
     phone = db.Column(db.String(20), nullable=True)
     profile_image = db.Column(db.String(255), nullable=True)
+    notification_preferences = db.Column(db.String(255), default="email,chat,sound", nullable=True)
 
     created_at = db.Column(db.DateTime(timezone=True), default=utc_now)
 

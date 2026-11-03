@@ -1,8 +1,10 @@
-
 import os
-
+import sqlite3
 from flask import Flask, redirect, url_for, render_template
-from flask_login import current_user,login_required
+from flask_login import current_user, login_required
+from werkzeug.middleware.proxy_fix import ProxyFix
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 from config import Config
 from extensions import (
@@ -15,39 +17,75 @@ from extensions import (
 )
 
 
-def create_app():
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    """Enforce WAL mode and busy timeout for high-concurrency SQLite operations."""
+    if dbapi_connection.__class__.__module__.startswith("sqlite3"):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=10000")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
 
+
+def ensure_db_schema(app):
+    """Safely apply schema migrations for new columns without data loss."""
+    if app.config.get("TESTING"):
+        return
+
+    if not app.config.get("SQLALCHEMY_DATABASE_URI", "").startswith("sqlite"):
+        return
+
+    db_path = os.path.join(os.path.dirname(__file__), "application.db")
+    if not os.path.exists(db_path):
+        return
+
+    try:
+        con = sqlite3.connect(db_path)
+        cur = con.cursor()
+
+        def add_col_if_missing(table, col, col_def):
+            cols = [r[1] for r in cur.execute(f"PRAGMA table_info({table})").fetchall()]
+            if col not in cols:
+                cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
+
+        add_col_if_missing("emails", "label", "VARCHAR(50)")
+        add_col_if_missing("chat_messages", "reply_to_id", "INTEGER")
+        add_col_if_missing("user_profiles", "notification_preferences", "VARCHAR(255) DEFAULT 'email,chat,sound'")
+        add_col_if_missing("email_attachments", "mimetype", "VARCHAR(150) DEFAULT 'application/octet-stream'")
+
+        con.commit()
+        con.close()
+    except Exception as e:
+        app.logger.warning(f"Schema check error: {e}")
+
+
+def create_app(config_class=Config, test_config=None):
     app = Flask(__name__)
-    app.config.from_object(Config)
+    app.config.from_object(config_class)
+
+    # Cloudflare Reverse Proxy Header handling
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+    if test_config:
+        app.config.update(test_config)
 
     # --------------------------------------------------
     # CREATE UPLOAD DIRECTORIES
     # --------------------------------------------------
-
-    os.makedirs(
-        app.config["UPLOAD_FOLDER"],
-        exist_ok=True
-    )
-
-    for folder in [
-        "email_attachments",
-        "chat_attachments",
-        "profiles"
-    ]:
-        os.makedirs(
-            os.path.join(
-                app.config["UPLOAD_FOLDER"],
-                folder
-            ),
-            exist_ok=True
-        )
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    for folder in ["email_attachments", "chat_attachments", "profiles"]:
+        os.makedirs(os.path.join(app.config["UPLOAD_FOLDER"], folder), exist_ok=True)
 
     # --------------------------------------------------
     # INITIALIZE FLASK EXTENSIONS
     # --------------------------------------------------
-
     db.init_app(app)
     login_manager.init_app(app)
+
+    # Register Socket.IO events before initializing app so handlers are retained
+    import chat_module.events
+
     socketio.init_app(app)
     csrf.init_app(app)
     migrate.init_app(app, db)
@@ -60,437 +98,138 @@ def create_app():
     # --------------------------------------------------
     # IMPORT DATABASE MODELS
     # --------------------------------------------------
-
     from auth_module.models import User, UserProfile
-
-    from email_module.models import (
-        Email,
-        EmailAttachment
-    )
-
-    from chat_module.models import (
-        Conversation,
-        ConversationMember,
-        ChatMessage
-    )
-
+    from email_module.models import Email, EmailAttachment
+    from chat_module.models import Conversation, ConversationMember, ChatMessage
     from notification_module.models import Notification
 
     # --------------------------------------------------
     # REGISTER BLUEPRINTS
     # --------------------------------------------------
-
-    # Authentication
     from auth_module import auth_bp
     app.register_blueprint(auth_bp)
 
-    # Email
     from email_module import email_bp
     app.register_blueprint(email_bp)
 
-    # Chat
     from chat_module import chat_bp
     app.register_blueprint(chat_bp)
 
-    # Notifications
     from notification_module import notification_bp
     app.register_blueprint(notification_bp)
+
+    from admin_module import admin_bp
+    app.register_blueprint(admin_bp)
 
     # --------------------------------------------------
     # REGISTER SOCKET.IO EVENTS
     # --------------------------------------------------
-
     import chat_module.events
 
     # --------------------------------------------------
-    # HOME PAGE
+    # CONTEXT PROCESSORS (GLOBAL TEMPLATE VARIABLES)
     # --------------------------------------------------
+    @app.context_processor
+    def inject_global_data():
+        if current_user.is_authenticated:
+            unread_notifs = Notification.query.filter_by(
+                recipient_id=current_user.id,
+                is_read=False
+            ).count()
 
+            unread_emails = Email.query.filter_by(
+                recipient_id=current_user.id,
+                folder="inbox",
+                is_read=False
+            ).count()
+
+            return {
+                "unread_notifications": unread_notifs,
+                "unread_emails": unread_emails,
+                "is_admin": current_user.role == "admin"
+            }
+        return {
+            "unread_notifications": 0,
+            "unread_emails": 0,
+            "is_admin": False
+        }
+
+    # --------------------------------------------------
+    # ROUTES
+    # --------------------------------------------------
     @app.route("/")
     def home():
-
         if current_user.is_authenticated:
-            return redirect(
-                url_for("dashboard")
-            )
+            return redirect(url_for("dashboard"))
+        return redirect(url_for("auth.login"))
 
-        return redirect(
-            url_for("auth.login")
-        )
-
-    # --------------------------------------------------
-    # DASHBOARD
-    # --------------------------------------------------
-
-    
-    # Dashboard
     @app.route("/dashboard")
     @login_required
     def dashboard():
-
         unread_notifications = Notification.query.filter_by(
             recipient_id=current_user.id,
             is_read=False
         ).count()
 
-        return f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>ConnectHub Dashboard</title>
-
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-
-            <style>
-                * {{
-                    box-sizing: border-box;
-                }}
-
-                body {{
-                    margin: 0;
-                    background: #f7f6fd;
-                    font-family: "Segoe UI", Arial, sans-serif;
-                    color: #302b50;
-                }}
-
-                .main-container {{
-                    max-width: 1250px;
-                    margin: auto;
-                    padding: 25px 35px;
-                }}
-
-                .topbar {{
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 35px;
-                }}
-
-                .brand {{
-                    font-size: 25px;
-                    font-weight: 750;
-                    color: #302b50;
-                }}
-
-                .profile-area {{
-                    display: flex;
-                    align-items: center;
-                    gap: 18px;
-                }}
-
-                .notification-link {{
-                    position: relative;
-                    color: #6254c7;
-                    font-size: 23px;
-                    text-decoration: none;
-                    padding: 8px;
-                }}
-
-                .notification-badge {{
-                    position: absolute;
-                    top: 0;
-                    right: -2px;
-                    background: #ef476f;
-                    color: white;
-                    font-size: 10px;
-                    min-width: 18px;
-                    height: 18px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }}
-
-                .profile {{
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                    background: white;
-                    border: 1px solid #eeecf5;
-                    border-radius: 30px;
-                    padding: 9px 16px;
-                    color: #6254a3;
-                    font-size: 13px;
-                }}
-
-                .profile-icon {{
-                    width: 34px;
-                    height: 34px;
-                    border-radius: 50%;
-                    background: #7969dc;
-                    color: white;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-weight: bold;
-                }}
-
-                .welcome {{
-                    background: linear-gradient(110deg, #7665d9, #9989ed);
-                    color: white;
-                    padding: 38px;
-                    border-radius: 22px;
-                    margin-bottom: 35px;
-                    box-shadow: 0 10px 25px rgba(100, 80, 190, 0.12);
-                }}
-
-                .welcome h1 {{
-                    font-size: 30px;
-                    font-weight: 750;
-                    margin-bottom: 10px;
-                }}
-
-                .welcome p {{
-                    margin: 0;
-                    font-size: 14px;
-                    opacity: 0.95;
-                }}
-
-                .section-heading {{
-                    font-size: 19px;
-                    font-weight: 700;
-                    margin-bottom: 18px;
-                }}
-
-                .workspace-card {{
-                    background: white;
-                    border: 1px solid #eeecf5;
-                    border-radius: 20px;
-                    padding: 28px;
-                    min-height: 205px;
-                    height: 100%;
-                    text-decoration: none;
-                    color: inherit;
-                    display: block;
-                    transition: 0.2s ease;
-                }}
-
-                .workspace-card:hover {{
-                    transform: translateY(-4px);
-                    border-color: #c9bfff;
-                    box-shadow: 0 10px 25px rgba(80, 65, 140, 0.09);
-                    color: inherit;
-                }}
-
-                .workspace-icon {{
-                    width: 55px;
-                    height: 55px;
-                    border-radius: 16px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 25px;
-                    margin-bottom: 20px;
-                }}
-
-                .email-icon {{
-                    background: #efedff;
-                    color: #7665d9;
-                }}
-
-                .chat-icon {{
-                    background: #e5f7f2;
-                    color: #229d82;
-                }}
-
-                .workspace-card h5 {{
-                    font-weight: 700;
-                    font-size: 17px;
-                    margin-bottom: 9px;
-                }}
-
-                .workspace-card p {{
-                    color: #89869f;
-                    font-size: 13px;
-                    line-height: 1.7;
-                    margin-bottom: 0;
-                }}
-
-                .footer {{
-                    text-align: center;
-                    color: #9994b0;
-                    font-size: 12px;
-                    margin-top: 50px;
-                }}
-
-                .logout-link {{
-                    color: #7665d9;
-                    text-decoration: none;
-                    font-size: 13px;
-                    margin-left: 12px;
-                }}
-
-                @media (max-width: 600px) {{
-                    .main-container {{
-                        padding: 18px;
-                    }}
-
-                    .welcome {{
-                        padding: 27px 22px;
-                    }}
-
-                    .welcome h1 {{
-                        font-size: 24px;
-                    }}
-
-                    .profile {{
-                        padding: 7px;
-                    }}
-
-                    .profile-email {{
-                        display: none;
-                    }}
-
-                    .topbar {{
-                        margin-bottom: 25px;
-                    }}
-                }}
-            </style>
-        </head>
-
-        <body>
-
-            <div class="main-container">
-
-                <header class="topbar">
-
-                    <div class="brand">
-                        <i class="bi bi-chat-square-heart-fill me-2"
-                           style="color:#7665d9;"></i>
-                        ConnectHub
-                    </div>
-
-                    <div class="profile-area">
-
-                        <a href="/notifications/"
-                           class="notification-link"
-                           title="Notifications">
-
-                            <i class="bi bi-bell-fill"></i>
-
-                            {f'<span class="notification-badge">{unread_notifications}</span>' if unread_notifications > 0 else ''}
-
-                        </a>
-
-                        <div class="profile">
-
-                            <div class="profile-icon">
-                                {current_user.username[0].upper()}
-                            </div>
-
-                            <span class="profile-email">
-                                {current_user.email}
-                            </span>
-
-                        </div>
-
-                        <a href="/auth/logout"
-                           class="logout-link"
-                           title="Logout">
-                            <i class="bi bi-box-arrow-right"></i>
-                        </a>
-
-                    </div>
-
-                </header>
-
-                <section class="welcome">
-
-                    <h1>Welcome back, {current_user.username}!</h1>
-
-                    <p>
-                        Your Email and Real-Time Chat Application.
-                        Stay connected with everyone in one place.
-                    </p>
-
-                </section>
-
-                <h5 class="section-heading">Your Workspaces</h5>
-
-                <div class="row g-4">
-
-                    <div class="col-md-6">
-
-                        <a href="/email/" class="workspace-card">
-
-                            <div class="workspace-icon email-icon">
-                                <i class="bi bi-envelope-fill"></i>
-                            </div>
-
-                            <h5>Email Management</h5>
-
-                            <p>
-                                Send and receive emails, manage your inbox,
-                                organize drafts and access important messages.
-                            </p>
-
-                        </a>
-
-                    </div>
-
-                    <div class="col-md-6">
-
-                        <a href="/chat/" class="workspace-card">
-
-                            <div class="workspace-icon chat-icon">
-                                <i class="bi bi-chat-dots-fill"></i>
-                            </div>
-
-                            <h5>Real-Time Chat</h5>
-
-                            <p>
-                                Start private conversations, create groups,
-                                share files and communicate in real time.
-                            </p>
-
-                        </a>
-
-                    </div>
-
-                </div>
-
-                <div class="footer">
-                    ConnectHub · Your communication workspace
-                </div>
-
-            </div>
-
-        </body>
-        </html>
-        """
-
-
+        unread_emails = Email.query.filter_by(
+            recipient_id=current_user.id,
+            folder="inbox",
+            is_read=False
+        ).count()
+
+        sent_emails_count = Email.query.filter_by(
+            sender_id=current_user.id,
+            folder="sent"
+        ).count()
+
+        memberships = ConversationMember.query.filter_by(
+            user_id=current_user.id
+        ).all()
+        active_chats_count = len(memberships)
+
+        recent_emails = Email.query.filter_by(
+            recipient_id=current_user.id,
+            folder="inbox"
+        ).order_by(Email.created_at.desc()).limit(5).all()
+
+        recent_conversations = [m.conversation for m in memberships]
+        recent_conversations.sort(
+            key=lambda c: c.last_message_at or c.created_at,
+            reverse=True
+        )
+        recent_conversations = recent_conversations[:5]
+
+        return render_template(
+            "dashboard.html",
+            unread_notifications=unread_notifications,
+            unread_emails=unread_emails,
+            sent_emails_count=sent_emails_count,
+            active_chats_count=active_chats_count,
+            recent_emails=recent_emails,
+            recent_conversations=recent_conversations,
+            username=current_user.username,
+            email=current_user.email
+        )
 
     # --------------------------------------------------
-    # CREATE DATABASE TABLES
+    # CREATE DATABASE TABLES AND RUN AUTO-MIGRATION
     # --------------------------------------------------
-
     with app.app_context():
         db.create_all()
+        ensure_db_schema(app)
 
     return app
 
 
-# --------------------------------------------------
-# CREATE FLASK APPLICATION
-# --------------------------------------------------
-
 app = create_app()
 
-
-# --------------------------------------------------
-# RUN APPLICATION
-# --------------------------------------------------
-
 if __name__ == "__main__":
-
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
     socketio.run(
         app,
         host="0.0.0.0",
-        port=5000,
-        debug=True,
+        port=port,
+        debug=debug,
         allow_unsafe_werkzeug=True
     )

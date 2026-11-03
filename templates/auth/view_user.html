@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}{{ target_user.username }}'s Profile{% endblock %}
+{% block page_title %}User Profile{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0" style="max-width: 800px;">
+
+    <div class="hub-card text-center p-4 mb-4">
+        <div class="position-relative d-inline-block mb-3">
+            <div class="user-avatar mx-auto position-relative" style="width: 100px; height: 100px; font-size: 38px;">
+                {% if target_user.profile and target_user.profile.profile_image %}
+                    <img src="{{ url_for('auth.profile_image', user_id=target_user.id) }}"
+                         alt="{{ target_user.username }}"
+                         id="targetAvatarImg"
+                         class="rounded-circle w-100 h-100 object-fit-cover shadow-sm">
+                {% else %}
+                    <span id="targetAvatarInitial">{{ target_user.username[:1]|upper }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <h4 class="fw-bold mb-1">{{ target_user.profile.full_name if (target_user.profile and target_user.profile.full_name) else target_user.username }}</h4>
+        <p class="text-muted small mb-2">@{{ target_user.username }}</p>
+
+        <!-- LIVE ONLINE / OFFLINE STATUS -->
+        <div class="d-flex align-items-center justify-content-center gap-2 mb-3">
+            <span class="badge rounded-pill d-inline-flex align-items-center gap-1.5 px-3 py-1.5"
+                  id="targetStatusBadge"
+                  style="font-size: 13px; font-weight: 500; background: {% if is_online %}#dcfce7; color: #15803d; border: 1px solid #bbf7d0;{% else %}#f1f5f9; color: #64748b; border: 1px solid #e2e8f0;{% endif %}">
+                <span class="status-dot {% if is_online %}online{% else %}offline{% endif %}"
+                      id="targetStatusDot"
+                      style="width: 8px; height: 8px; border-radius: 50%;"></span>
+                <span id="targetStatusText">{% if is_online %}Online{% else %}Offline{% endif %}</span>
+            </span>
+
+            {% if target_user.last_seen and not is_online %}
+                <small class="text-muted" id="targetLastSeen">Last active: {{ target_user.last_seen.strftime('%d %b %Y, %I:%M %p') }}</small>
+            {% endif %}
+        </div>
+
+        <p class="small text-muted mb-4 fst-italic px-4">
+            "{{ target_user.profile.bio if (target_user.profile and target_user.profile.bio) else 'No bio provided yet.' }}"
+        </p>
+
+        <!-- ACTION BUTTONS -->
+        <div class="d-flex justify-content-center gap-3 mb-4">
+            <a href="{{ url_for('chat.private_chat', user_id=target_user.id) }}" class="btn btn-primary d-inline-flex align-items-center gap-2 px-4 py-2">
+                <i class="bi bi-chat-dots-fill"></i>
+                <span>Send Chat Message</span>
+            </a>
+            <a href="{{ url_for('email.compose') }}?to={{ target_user.email }}" class="btn btn-outline-primary d-inline-flex align-items-center gap-2 px-4 py-2">
+                <i class="bi bi-envelope-fill"></i>
+                <span>Send Email</span>
+            </a>
+        </div>
+
+        <hr class="border-light my-3">
+
+        <div class="row text-center g-3">
+            <div class="col-md-6">
+                <div class="p-3 rounded-3 bg-light">
+                    <div class="fw-bold text-primary fs-5">{{ emails_sent_count }}</div>
+                    <div class="text-muted small">Sent Emails</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="p-3 rounded-3 bg-light">
+                    <div class="fw-bold text-info fs-5">{{ conversations_count }}</div>
+                    <div class="text-muted small">Active Conversations</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-muted mt-3" style="font-size: 11px;">
+            Member since {{ target_user.created_at.strftime('%B %Y') if target_user.created_at else 'Recent' }}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+    const socket = io({
+        transports: ['polling', 'websocket'],
+        reconnection: true
+    });
+
+    socket.on("user_status", (data) => {
+        if (Number(data.user_id) === {{ target_user.id }}) {
+            const isOnline = (data.status === "online");
+            const badge = document.getElementById("targetStatusBadge");
+            const dot = document.getElementById("targetStatusDot");
+            const text = document.getElementById("targetStatusText");
+            const lastSeen = document.getElementById("targetLastSeen");
+
+            if (dot) dot.className = "status-dot " + (isOnline ? "online" : "offline");
+            if (text) text.textContent = isOnline ? "Online" : "Offline";
+            if (badge) {
+                if (isOnline) {
+                    badge.style.background = "#dcfce7";
+                    badge.style.color = "#15803d";
+                    badge.style.border = "1px solid #bbf7d0";
+                    if (lastSeen) lastSeen.style.display = "none";
+                } else {
+                    badge.style.background = "#f1f5f9";
+                    badge.style.color = "#64748b";
+                    badge.style.border = "1px solid #e2e8f0";
+                    if (lastSeen) {
+                        lastSeen.style.display = "inline";
+                        lastSeen.textContent = "Last active: Just now";
+                    }
+                }
+            }
+        }
+    });
+
+    socket.on("profile_updated", (data) => {
+        if (Number(data.user_id) === {{ target_user.id }}) {
+            const avatarImg = document.getElementById("targetAvatarImg");
+            const avatarInitial = document.getElementById("targetAvatarInitial");
+            if (data.profile_image) {
+                const newSrc = `/auth/profile-image/${data.user_id}?t=` + new Date().getTime();
+                if (avatarImg) {
+                    avatarImg.src = newSrc;
+                } else if (avatarInitial && avatarInitial.parentElement) {
+                    avatarInitial.parentElement.innerHTML = `<img src="${newSrc}" id="targetAvatarImg" class="rounded-circle w-100 h-100 object-fit-cover shadow-sm">`;
+                }
+            } else {
+                if (avatarImg && avatarImg.parentElement) {
+                    avatarImg.parentElement.innerHTML = `<span id="targetAvatarInitial">{{ target_user.username[:1]|upper }}</span>`;
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
+

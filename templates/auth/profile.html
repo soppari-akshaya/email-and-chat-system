@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+
+{% block title %}Profile & Settings{% endblock %}
+{% block page_title %}Profile & Settings{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0" style="max-width: 1000px;">
+
+    <div class="row g-4">
+
+        <!-- Left Column: User Summary Card -->
+        <div class="col-lg-4">
+            <div class="hub-card text-center p-4 mb-4">
+                <div class="position-relative d-inline-block mb-3">
+                    <div class="user-avatar mx-auto position-relative" id="profileAvatarContainer" style="width: 96px; height: 96px; font-size: 36px;">
+                        {% if current_user.profile and current_user.profile.profile_image %}
+                            <img src="{{ url_for('auth.profile_image', user_id=current_user.id) }}"
+                                 alt="{{ current_user.username }}"
+                                 id="currentAvatarImg"
+                                 class="rounded-circle w-100 h-100 object-fit-cover shadow-sm">
+                        {% else %}
+                            <span id="currentAvatarInitial">{{ current_user.username[:1]|upper }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <h5 class="fw-bold mb-1">{{ current_user.profile.full_name or current_user.username }}</h5>
+                <p class="text-muted small mb-2">@{{ current_user.username }}</p>
+
+                <!-- REAL-TIME ACTIVITY STATUS -->
+                <div class="d-flex align-items-center justify-content-center gap-2 mb-3">
+                    <span class="badge rounded-pill d-inline-flex align-items-center gap-1.5 px-3 py-1"
+                          id="profileStatusBadge"
+                          style="font-size: 12px; font-weight: 500; background: {% if current_user.online_status == 'online' %}#dcfce7; color: #15803d; border: 1px solid #bbf7d0;{% else %}#f1f5f9; color: #64748b; border: 1px solid #e2e8f0;{% endif %}">
+                        <span class="status-dot {% if current_user.online_status == 'online' %}online{% else %}offline{% endif %}"
+                              id="profileStatusDot"
+                              style="width: 8px; height: 8px; border-radius: 50%;"></span>
+                        <span id="profileStatusText">{% if current_user.online_status == 'online' %}Active (Online){% else %}Offline{% endif %}</span>
+                    </span>
+
+                    {% if current_user.role == 'admin' %}
+                        <span class="badge badge-role badge-admin">Administrator</span>
+                    {% else %}
+                        <span class="badge badge-role badge-user">Standard User</span>
+                    {% endif %}
+                </div>
+
+                <p class="small text-muted mb-4 fst-italic">
+                    "{{ current_user.profile.bio or 'No bio provided yet.' }}"
+                </p>
+
+                <hr class="border-light my-3">
+
+                <!-- Account Stats Grid -->
+                <div class="row text-center g-2">
+                    <div class="col-6">
+                        <div class="p-2 rounded-3 bg-light">
+                            <div class="fw-bold text-primary fs-5">{{ emails_sent_count }}</div>
+                            <div class="text-muted" style="font-size: 11px;">Sent Emails</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-2 rounded-3 bg-light">
+                            <div class="fw-bold text-success fs-5">{{ emails_received_count }}</div>
+                            <div class="text-muted" style="font-size: 11px;">Received</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-2 rounded-3 bg-light">
+                            <div class="fw-bold text-info fs-5">{{ conversations_count }}</div>
+                            <div class="text-muted" style="font-size: 11px;">Conversations</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-2 rounded-3 bg-light">
+                            <div class="fw-bold text-warning fs-5">{{ messages_sent_count }}</div>
+                            <div class="text-muted" style="font-size: 11px;">Messages Sent</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-muted mt-3" style="font-size: 11px;">
+                    Member since {{ current_user.created_at.strftime('%B %Y') if current_user.created_at else 'Recent' }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Settings Tabs -->
+        <div class="col-lg-8">
+
+            <!-- EDIT PROFILE CARD -->
+            <div class="hub-card mb-4">
+                <div class="hub-card-header">
+                    <h5 class="hub-card-title"><i class="bi bi-person-lines-fill me-2 text-primary"></i>Personal Information</h5>
+                </div>
+                <div class="hub-card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        {{ form.hidden_tag() }}
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                {{ form.full_name.label(class="form-label") }}
+                                {{ form.full_name(class="form-control", placeholder="Your full name") }}
+                                {% for error in form.full_name.errors %}
+                                    <small class="text-danger">{{ error }}</small>
+                                {% endfor %}
+                            </div>
+
+                            <div class="col-md-6">
+                                {{ form.username.label(class="form-label") }}
+                                {{ form.username(class="form-control", placeholder="Username") }}
+                                {% for error in form.username.errors %}
+                                    <small class="text-danger">{{ error }}</small>
+                                {% endfor %}
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Email Address (Read-only)</label>
+                                <input type="email" class="form-control bg-light" value="{{ current_user.email }}" readonly>
+                                <small class="text-muted">Contact admin to modify registered email.</small>
+                            </div>
+
+                            <div class="col-md-6">
+                                {{ form.phone.label(class="form-label") }}
+                                {{ form.phone(class="form-control", placeholder="+1 (555) 000-0000") }}
+                                {% for error in form.phone.errors %}
+                                    <small class="text-danger">{{ error }}</small>
+                                {% endfor %}
+                            </div>
+
+                            <div class="col-12">
+                                {{ form.bio.label(class="form-label") }}
+                                {{ form.bio(class="form-control", rows=3, placeholder="Tell others a little about yourself...") }}
+                                {% for error in form.bio.errors %}
+                                    <small class="text-danger">{{ error }}</small>
+                                {% endfor %}
+                            </div>
+
+                            <!-- PROFILE PICTURE CONTROLS -->
+                            <div class="col-12">
+                                <label class="form-label fw-semibold d-block">Profile Picture</label>
+
+                                <div class="p-3 border rounded-3 bg-light d-flex flex-column flex-sm-row align-items-center gap-3">
+                                    <!-- Thumbnail / Live Preview -->
+                                    <div class="user-avatar flex-shrink-0" id="previewThumbnail" style="width: 64px; height: 64px; font-size: 24px; border: 2px solid var(--border);">
+                                        {% if current_user.profile and current_user.profile.profile_image %}
+                                            <img src="{{ url_for('auth.profile_image', user_id=current_user.id) }}"
+                                                 id="imgThumb"
+                                                 alt="{{ current_user.username }}"
+                                                 class="rounded-circle w-100 h-100 object-fit-cover">
+                                        {% else %}
+                                            <span id="initialThumb">{{ current_user.username[:1]|upper }}</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="flex-grow-1 text-center text-sm-start">
+                                        <div class="d-flex flex-wrap align-items-center gap-2 justify-content-center justify-content-sm-start mb-2">
+                                            <!-- Choose / Change File Button -->
+                                            <label for="profileImageInput" class="btn btn-sm btn-outline-primary mb-0 d-inline-flex align-items-center gap-1.5 cursor-pointer">
+                                                <i class="bi bi-camera-fill"></i>
+                                                <span id="uploadBtnText">{% if current_user.profile and current_user.profile.profile_image %}Change Picture{% else %}Upload Picture{% endif %}</span>
+                                            </label>
+
+                                            <!-- Reset Preview Button (Hidden by default) -->
+                                            <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="cancelPreviewBtn" onclick="cancelImagePreview()">
+                                                <i class="bi bi-x-circle me-1"></i> Cancel Preview
+                                            </button>
+
+                                            <!-- Remove Existing Picture Button -->
+                                            {% if current_user.profile and current_user.profile.profile_image %}
+                                                <button type="button" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1" onclick="if(confirm('Are you sure you want to remove your profile picture?')) document.getElementById('removeImageForm').submit();">
+                                                    <i class="bi bi-trash3"></i> Remove
+                                                </button>
+                                            {% endif %}
+                                        </div>
+
+                                        <!-- Actual Hidden File Input -->
+                                        <input type="file"
+                                               name="profile_image"
+                                               id="profileImageInput"
+                                               class="d-none"
+                                               accept="image/jpeg,image/png,image/gif,image/webp"
+                                               onchange="handleImagePreview(this)">
+
+                                        <div class="small text-muted" style="font-size: 11.5px;">
+                                            JPG, PNG, GIF or WEBP format. Maximum file size: 5MB.
+                                        </div>
+                                        <div id="fileValidationAlert" class="small text-danger fw-semibold mt-1 d-none"></div>
+                                        <div id="previewNoticeBadge" class="small text-success fw-semibold mt-1 d-none">
+                                            <i class="bi bi-check-circle-fill me-1"></i> Image preview active. Click 'Save Changes' below to apply.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label d-block">Notification Preferences</label>
+                                <div class="d-flex flex-wrap gap-4 mt-1">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="notifications" value="email" id="notifEmail"
+                                               {% if 'email' in current_prefs %}checked{% endif %}>
+                                        <label class="form-check-label" for="notifEmail">
+                                            Email Notifications
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="notifications" value="chat" id="notifChat"
+                                               {% if 'chat' in current_prefs %}checked{% endif %}>
+                                        <label class="form-check-label" for="notifChat">
+                                            Chat Message Alerts
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="notifications" value="sound" id="notifSound"
+                                               {% if 'sound' in current_prefs %}checked{% endif %}>
+                                        <label class="form-check-label" for="notifSound">
+                                            Play Sound on Message
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 text-end mt-4">
+                                <button type="submit" name="submit" class="btn btn-primary px-4">
+                                    <i class="bi bi-check2-circle me-1"></i> Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- SECURITY / CHANGE PASSWORD CARD -->
+            <div class="hub-card">
+                <div class="hub-card-header">
+                    <h5 class="hub-card-title"><i class="bi bi-shield-lock-fill me-2 text-warning"></i>Security & Password</h5>
+                </div>
+                <div class="hub-card-body">
+                    <form method="POST" action="{{ url_for('auth.change_password') }}">
+                        {{ password_form.hidden_tag() }}
+
+                        <div class="row g-3">
+                            <div class="col-12">
+                                {{ password_form.current_password.label(class="form-label") }}
+                                {{ password_form.current_password(class="form-control", placeholder="Enter current password") }}
+                            </div>
+
+                            <div class="col-md-6">
+                                {{ password_form.new_password.label(class="form-label") }}
+                                {{ password_form.new_password(class="form-control", placeholder="Min. 8 characters") }}
+                            </div>
+
+                            <div class="col-md-6">
+                                {{ password_form.confirm_new_password.label(class="form-label") }}
+                                {{ password_form.confirm_new_password(class="form-control", placeholder="Re-enter new password") }}
+                            </div>
+
+                            <div class="col-12 text-end mt-4">
+                                <button type="submit" class="btn btn-secondary px-4">
+                                    <i class="bi bi-key-fill me-1"></i> Update Password
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- HIDDEN FORM TO REMOVE PROFILE PICTURE -->
+<form id="removeImageForm" method="POST" action="{{ url_for('auth.remove_profile_image') }}" class="d-none">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+    // Live Image Preview and Validation
+    let originalThumbHtml = document.getElementById("previewThumbnail") ? document.getElementById("previewThumbnail").innerHTML : '';
+    let originalCardAvatarHtml = document.getElementById("profileAvatarContainer") ? document.getElementById("profileAvatarContainer").innerHTML : '';
+
+    function handleImagePreview(input) {
+        const file = input.files && input.files[0];
+        const alertEl = document.getElementById("fileValidationAlert");
+        const noticeEl = document.getElementById("previewNoticeBadge");
+        const cancelBtn = document.getElementById("cancelPreviewBtn");
+        const uploadBtnText = document.getElementById("uploadBtnText");
+
+        if (alertEl) {
+            alertEl.classList.add("d-none");
+            alertEl.textContent = "";
+        }
+
+        if (!file) return;
+
+        // 1. Validate file extension
+        const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+        if (!validTypes.includes(file.type)) {
+            if (alertEl) {
+                alertEl.textContent = "Please select a valid image file (JPG, PNG, GIF, or WEBP).";
+                alertEl.classList.remove("d-none");
+            }
+            input.value = "";
+            return;
+        }
+
+        // 2. Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            if (alertEl) {
+                alertEl.textContent = "Selected image exceeds 5MB. Please choose a smaller image.";
+                alertEl.classList.remove("d-none");
+            }
+            input.value = "";
+            return;
+        }
+
+        // 3. Read and Preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const previewUrl = e.target.result;
+
+            const thumb = document.getElementById("previewThumbnail");
+            if (thumb) {
+                thumb.innerHTML = `<img src="${previewUrl}" class="rounded-circle w-100 h-100 object-fit-cover shadow-sm">`;
+            }
+
+            const cardAvatar = document.getElementById("profileAvatarContainer");
+            if (cardAvatar) {
+                cardAvatar.innerHTML = `<img src="${previewUrl}" class="rounded-circle w-100 h-100 object-fit-cover shadow-sm">`;
+            }
+
+            if (noticeEl) noticeEl.classList.remove("d-none");
+            if (cancelBtn) cancelBtn.classList.remove("d-none");
+            if (uploadBtnText) uploadBtnText.textContent = "Choose Different";
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function cancelImagePreview() {
+        const input = document.getElementById("profileImageInput");
+        if (input) input.value = "";
+
+        const thumb = document.getElementById("previewThumbnail");
+        if (thumb) thumb.innerHTML = originalThumbHtml;
+
+        const cardAvatar = document.getElementById("profileAvatarContainer");
+        if (cardAvatar) cardAvatar.innerHTML = originalCardAvatarHtml;
+
+        const alertEl = document.getElementById("fileValidationAlert");
+        const noticeEl = document.getElementById("previewNoticeBadge");
+        const cancelBtn = document.getElementById("cancelPreviewBtn");
+        const uploadBtnText = document.getElementById("uploadBtnText");
+
+        if (alertEl) alertEl.classList.add("d-none");
+        if (noticeEl) noticeEl.classList.add("d-none");
+        if (cancelBtn) cancelBtn.classList.add("d-none");
+        if (uploadBtnText) uploadBtnText.textContent = "{% if current_user.profile and current_user.profile.profile_image %}Change Picture{% else %}Upload Picture{% endif %}";
+    }
+
+    // Real-Time Socket.IO Status Updates
+    const socket = io({
+        transports: ['polling', 'websocket'],
+        reconnection: true
+    });
+
+    socket.on("connect", () => {
+        updateProfileStatus(true);
+    });
+
+    socket.on("disconnect", () => {
+        updateProfileStatus(false);
+    });
+
+    socket.on("user_status", (data) => {
+        if (Number(data.user_id) === {{ current_user.id }}) {
+            updateProfileStatus(data.status === "online");
+        }
+    });
+
+    function updateProfileStatus(isOnline) {
+        const badge = document.getElementById("profileStatusBadge");
+        const dot = document.getElementById("profileStatusDot");
+        const text = document.getElementById("profileStatusText");
+
+        if (dot) dot.className = "status-dot " + (isOnline ? "online" : "offline");
+        if (text) text.textContent = isOnline ? "Active (Online)" : "Offline";
+        if (badge) {
+            if (isOnline) {
+                badge.style.background = "#dcfce7";
+                badge.style.color = "#15803d";
+                badge.style.border = "1px solid #bbf7d0";
+            } else {
+                badge.style.background = "#f1f5f9";
+                badge.style.color = "#64748b";
+                badge.style.border = "1px solid #e2e8f0";
+            }
+        }
+    }
+</script>
+{% endblock %}
+
+

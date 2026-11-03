@@ -1,4 +1,3 @@
-
 from datetime import datetime, timezone
 
 from extensions import db
@@ -35,6 +34,7 @@ class Email(db.Model):
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     is_starred = db.Column(db.Boolean, default=False, nullable=False)
     is_important = db.Column(db.Boolean, default=False, nullable=False)
+    label = db.Column(db.String(50), nullable=True, default=None)
 
     sent_at = db.Column(db.DateTime(timezone=True), default=utc_now)
     created_at = db.Column(db.DateTime(timezone=True), default=utc_now)
@@ -76,6 +76,7 @@ class EmailAttachment(db.Model):
     original_filename = db.Column(db.String(255), nullable=False)
     stored_filename = db.Column(db.String(255), nullable=False)
     file_size = db.Column(db.Integer, nullable=False)
+    mimetype = db.Column(db.String(150), nullable=True, default="application/octet-stream")
 
     uploaded_at = db.Column(
         db.DateTime(timezone=True),

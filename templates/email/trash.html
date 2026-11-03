@@ -1,397 +1,126 @@
+{% extends "base.html" %}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Trash | ConnectHub</title>
+{% block title %}Trash{% endblock %}
+{% block page_title %}Trash{% endblock %}
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+{% block content %}
+<div class="container-fluid p-0">
 
-    <style>
-        body {
-            background: #f7f6fc;
-            font-family: Arial, sans-serif;
-            color: #29263d;
-        }
+    <div class="hub-card mb-3 p-3">
+        <div class="row g-2 align-items-center justify-content-between">
+            <div class="col-md-7 col-lg-8">
+                <form method="GET" action="{{ url_for('email.trash') }}" class="d-flex align-items-center gap-2">
+                    <div class="input-group" style="max-width: 320px;">
+                        <span class="input-group-text bg-light border-end-0 text-muted" style="border-radius: 10px 0 0 10px;">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text"
+                               name="q"
+                               class="form-control border-start-0 ps-0 bg-light"
+                               placeholder="Search trash..."
+                               value="{{ search }}"
+                               style="border-radius: 0 10px 10px 0; font-size: 13px;">
+                    </div>
+                    {% if search %}
+                        <a href="{{ url_for('email.trash') }}" class="btn btn-sm btn-link text-muted">Clear</a>
+                    {% endif %}
+                </form>
+            </div>
 
-        .trash-page {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 35px 20px;
-        }
-
-        .trash-heading {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .trash-heading h2 {
-            font-size: 27px;
-            font-weight: 750;
-            margin: 0;
-        }
-
-        .trash-heading p {
-            color: #89869c;
-            font-size: 13px;
-            margin: 6px 0 0;
-        }
-
-        .trash-count {
-            background: white;
-            border: 1px solid #eeecf5;
-            color: #89869c;
-            border-radius: 20px;
-            padding: 8px 13px;
-            font-size: 12px;
-            white-space: nowrap;
-        }
-
-        .trash-panel {
-            background: white;
-            border: 1px solid #eeecf5;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 5px 22px rgba(54, 43, 100, 0.035);
-        }
-
-        .trash-panel-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid #eeecf5;
-            font-weight: 700;
-            font-size: 16px;
-        }
-
-        .trash-panel-header i {
-            color: #7567d8;
-            margin-right: 9px;
-            font-size: 18px;
-        }
-
-        .trash-email {
-            padding: 22px 24px;
-            border-bottom: 1px solid #f1eff7;
-        }
-
-        .trash-email:last-child {
-            border-bottom: none;
-        }
-
-        .trash-email:hover {
-            background: #faf9ff;
-        }
-
-        .trash-email-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 15px;
-        }
-
-        .trash-subject {
-            font-size: 14px;
-            font-weight: 700;
-            color: #39354f;
-            overflow-wrap: anywhere;
-        }
-
-        .trash-subject i {
-            color: #7567d8;
-            margin-right: 7px;
-        }
-
-        .trash-preview {
-            color: #89869b;
-            font-size: 12px;
-            line-height: 1.6;
-            margin: 9px 0 15px;
-            overflow-wrap: anywhere;
-        }
-
-        .trash-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 9px;
-        }
-
-        .btn-restore {
-            background: #eeebff;
-            color: #6556c7;
-            border: 1px solid #e2ddff;
-            border-radius: 8px;
-            padding: 7px 13px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .btn-restore:hover {
-            background: #e2ddff;
-            color: #5143ad;
-        }
-
-        .btn-delete {
-            background: #fff0f0;
-            color: #d14f5b;
-            border: 1px solid #f8dddd;
-            border-radius: 8px;
-            padding: 7px 13px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .btn-delete:hover {
-            background: #ffe1e1;
-            color: #b83240;
-        }
-
-        .trash-empty {
-            text-align: center;
-            padding: 70px 20px;
-        }
-
-        .trash-empty-icon {
-            width: 75px;
-            height: 75px;
-            border-radius: 22px;
-            background: #f0edff;
-            color: #7567d8;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 0 auto 18px;
-            font-size: 30px;
-        }
-
-        .trash-empty h5 {
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .trash-empty p {
-            color: #89869c;
-            font-size: 13px;
-        }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 22px;
-            color: #7567d8;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .back-link:hover {
-            color: #5143ad;
-        }
-
-        .alert {
-            border-radius: 10px;
-            font-size: 13px;
-        }
-    
-        @media (max-width: 600px) {
-            .trash-page {
-                padding: 22px 12px;
-            }
-
-            .trash-heading h2 {
-                font-size: 22px;
-            }
-
-            .trash-email {
-                padding: 18px;
-            }
-        }
-              .folder-link {
-    height: 37px;
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    padding: 0 13px;
-    margin-bottom: 2px;
-    border-radius: 10px;
-    color: #52647d;
-    font-size: 13px;
-    font-weight: 500;
-    text-decoration: none;
-}
-
-.folder-link:hover {
-    background: #f6f4ff;
-    color: #7665d9;
-}
-
-.folder-link.active {
-    background: #efedff;
-    color: #7665d9;
-    font-weight: 650;
-}
-    </style>
-</head>
-
-<body>
-
-<div class="trash-page">
-
-    <a href="{{ url_for('email.inbox') }}" class="back-link">
-        <i class="bi bi-arrow-left"></i>
-        Back to Inbox
-    </a>
-
-    <div class="trash-heading">
-        <div>
-            <h2>Trash</h2>
-            <p>Manage deleted emails and restore messages when needed.</p>
+            <div class="col-md-5 col-lg-4 text-md-end">
+                <span class="text-muted small me-2" style="font-size: 12px;">Showing {{ emails|length }} of {{ total }}</span>
+                <div class="btn-group btn-group-sm" role="group">
+                    <a href="{{ url_for('email.trash', page=page-1, q=search) }}" class="btn btn-secondary {% if page <= 1 %}disabled{% endif %}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <span class="btn btn-secondary disabled fw-semibold text-dark">{{ page }} / {{ total_pages }}</span>
+                    <a href="{{ url_for('email.trash', page=page+1, q=search) }}" class="btn btn-secondary {% if page >= total_pages %}disabled{% endif %}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
         </div>
-
-        <span class="trash-count">
-            <i class="bi bi-trash3 me-1"></i>
-            {{ emails|length }} emails
-        </span>
     </div>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        {% endfor %}
-    {% endwith %}
-
-    <section class="trash-panel">
-
-        <div class="trash-panel-header">
-            <i class="bi bi-trash3"></i>
-            Deleted Messages
-        </div>
-
+    <div class="hub-card overflow-hidden">
         {% if emails %}
+            <div class="table-responsive">
+                <table class="hub-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;" class="text-center"><i class="bi bi-trash3 text-danger"></i></th>
+                            <th style="width: 180px;">User</th>
+                            <th>Subject & Content</th>
+                            <th style="width: 130px;" class="text-end">Date</th>
+                            <th style="width: 160px;" class="text-center">Manage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for email in emails %}
+                            <tr style="cursor: pointer;" onclick="window.location='{{ url_for('email.view_email', email_id=email.id) }}'">
+                                <td class="text-center text-muted">
+                                    <i class="bi bi-file-earmark-x"></i>
+                                </td>
 
-            {% for email in emails %}
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="user-avatar" style="width: 28px; height: 28px; font-size: 11px;">
+                                            {{ email.sender.username[:1]|upper if email.sender else 'U' }}
+                                        </div>
+                                        <div class="text-truncate" style="max-width: 130px;">
+                                            {{ email.sender.username if email.sender else 'User' }}
+                                        </div>
+                                    </div>
+                                </td>
 
-                <div class="trash-email">
+                                <td>
+                                    <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                        <span class="fw-semibold text-dark text-truncate" style="max-width: 300px;">
+                                            {{ email.subject or '(No subject)' }}
+                                        </span>
+                                        <span class="text-muted text-truncate small" style="max-width: 300px;">
+                                            — {{ email.body[:80] if email.body else '' }}
+                                        </span>
+                                    </div>
+                                </td>
 
-                    <div class="trash-email-top">
-                        <div class="trash-subject">
-                            <i class="bi bi-envelope"></i>
-                            {{ email.subject or "(No subject)" }}
-                        </div>
-                    </div>
+                                <td class="text-end text-muted small text-nowrap">
+                                    {{ email.created_at.strftime('%d %b, %I:%M %p') if email.created_at else '' }}
+                                </td>
 
-                    <p class="trash-preview">
-                        {{ email.body[:150] if email.body else "(No message content)" }}
-                    </p>
+                                <td class="text-center" onclick="event.stopPropagation();">
+                                    <div class="d-flex align-items-center justify-content-center gap-1">
+                                        <!-- Restore Form -->
+                                        <form method="POST" action="{{ url_for('email.restore_email', email_id=email.id) }}" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-success py-1 px-2" title="Restore Email" style="font-size: 11.5px;">
+                                                <i class="bi bi-arrow-counterclockwise"></i> Restore
+                                            </button>
+                                        </form>
 
-                    <div class="trash-actions">
-
-                        <form method="POST"
-                              action="{{ url_for('email.restore_email', email_id=email.id) }}">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-restore">
-                                <i class="bi bi-arrow-counterclockwise me-1"></i>
-                                Restore
-                            </button>
-                        </form>
-
-                        <form method="POST"
-                              action="{{ url_for('email.permanent_delete_email', email_id=email.id) }}"
-                              onsubmit="return confirm('Permanently delete this email? This action cannot be undone.')">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-delete">
-                                <i class="bi bi-trash3 me-1"></i>
-                                Delete Permanently
-                            </button>
-                        </form>
-
-                    </div>
-
-                </div>
-
-            {% endfor %}
-
-        {% else %}
-
-            <div class="trash-empty">
-
-                <div class="trash-empty-icon">
-                    <i class="bi bi-trash3"></i>
-                </div>
-
-                <h5>Your Trash is Empty</h5>
-                <p>Deleted emails will appear here.</p>
-
+                                        <!-- Permanent Delete Form -->
+                                        <form method="POST" action="{{ url_for('email.permanent_delete_email', email_id=email.id) }}" class="d-inline"
+                                              onsubmit="return confirm('Permanently delete this email? This cannot be undone.');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-2" title="Delete Forever" style="font-size: 11.5px;">
+                                                <i class="bi bi-x-circle"></i> Delete
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-trash3 text-muted display-4 d-block mb-3"></i>
+                <h5 class="fw-bold text-dark">Trash is empty</h5>
+                <p class="text-muted small mb-0">Deleted emails will appear here before being permanently removed.</p>
+            </div>
         {% endif %}
-
-    </section>
+    </div>
 
 </div>
-
-<aside class="folder-sidebar">
-
-    <a href="{{ url_for('email.compose') }}" class="compose-btn">
-        <i class="bi bi-pencil-square"></i>
-        Compose
-    </a>
-
-    <a href="{{ url_for('email.inbox') }}"
-       class="folder-link {% if request.endpoint == 'email.inbox' %}active{% endif %}">
-        <i class="bi bi-inbox"></i>
-        Inbox
-    </a>
-
-    <a href="{{ url_for('email.starred') }}"
-       class="folder-link {% if request.endpoint == 'email.starred' %}active{% endif %}">
-        <i class="bi bi-star"></i>
-        Starred
-    </a>
-
-    <a href="{{ url_for('email.sent') }}"
-       class="folder-link {% if request.endpoint in ['email.sent', 'email.view_sent_email'] %}active{% endif %}">
-        <i class="bi bi-send"></i>
-        Sent
-    </a>
-
-    <a href="{{ url_for('email.drafts') }}"
-       class="folder-link {% if request.endpoint == 'email.drafts' %}active{% endif %}">
-        <i class="bi bi-file-earmark"></i>
-        Drafts
-    </a>
-
-    <a href="{{ url_for('email.trash') }}"
-       class="folder-link {% if request.endpoint == 'email.trash' %}active{% endif %}">
-        <i class="bi bi-trash3"></i>
-        Trash
-    </a>
-
-    <a href="{{ url_for('email.important') }}"
-       class="folder-link {% if request.endpoint == 'email.important' %}active{% endif %}">
-        <i class="bi bi-bookmark"></i>
-        Important
-    </a>
-
-    <div class="folder-divider"></div>
-
-    <div class="folder-heading">APPLICATION</div>
-
-    <a href="{{ url_for('dashboard') }}" class="folder-link">
-        <i class="bi bi-grid"></i>
-        Dashboard
-    </a>
-
-</aside>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-</body>
-</html>
+{% endblock %}

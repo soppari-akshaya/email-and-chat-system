@@ -1,737 +1,638 @@
+{% extends "base.html" %}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ConnectHub | Chat</title>
+{% block title %}Chat{% endblock %}
+{% block page_title %}Real-Time Chat{% endblock %}
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+{% block extra_css %}
+<style>
+    .chat-inbox-wrapper {
+        height: calc(100vh - 120px);
+        min-height: 520px;
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        display: flex;
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+    }
 
-    <style>
-        .conversation-item {
-            position: relative;
+    .chat-sidebar-pane {
+        width: 360px;
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        background: #ffffff;
+        flex-shrink: 0;
+    }
+
+    .chat-main-pane {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fbfaff;
+        padding: 40px 20px;
+        text-align: center;
+    }
+
+    .conversation-card-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 13px 18px;
+        border-bottom: 1px solid var(--border-light);
+        text-decoration: none;
+        color: inherit;
+        transition: var(--transition);
+        position: relative;
+    }
+
+    .conversation-card-item:hover {
+        background: #f9f8fe;
+        color: inherit;
+    }
+
+    .status-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .status-dot.online {
+        background-color: #10b981;
+    }
+
+    .status-dot.offline {
+        background-color: #cbd5e1;
+    }
+
+    @media (max-width: 768px) {
+        .chat-sidebar-pane {
+            width: 100%;
         }
-
-        .conversation-info {
-            min-width: 0;
-            flex: 1;
+        .chat-main-pane {
+            display: none;
         }
+    }
+</style>
+{% endblock %}
 
-        .conversation-info strong,
-        .conversation-info small {
-            display: block;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
+{% block content %}
+<div class="container-fluid p-0">
 
-        .conversation-info small {
-            color: #85839a;
-        }
+    <div class="chat-inbox-wrapper">
 
-        .conversation-meta {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            justify-content: center;
-            gap: 6px;
-            margin-left: 8px;
-        }
+        <!-- LEFT SIDEBAR PANE -->
+        <aside class="chat-sidebar-pane">
 
-        .conversation-time {
-            color: #85839a;
-            font-size: 11px;
-            white-space: nowrap;
-        }
-
-        .unread-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 21px;
-            height: 21px;
-            padding: 0 6px;
-            border-radius: 20px;
-            background: #6555c7;
-            color: white;
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        .unread-badge[hidden] {
-            display: none !important;
-        }
-
-        .conversation-item.has-unread .conversation-info small {
-            color: #5145a5;
-            font-weight: 600;
-        }
-    </style>
-</head>
-
-<body>
-
-<div class="chat-app">
-
-    <!-- Top Header -->
-    <header class="top-header">
-        <div class="brand-area">
-            <a href="{{ url_for('dashboard') }}" class="back-button">
-                <i class="bi bi-arrow-left"></i>
-                <span>Dashboard</span>
-            </a>
-
-            <div class="brand-divider"></div>
-
-            <div class="brand-name">
-                <div class="brand-logo">
-                    <i class="bi bi-chat-dots-fill"></i>
-                </div>
-                <span>ConnectHub</span>
-                <small>CHAT</small>
-            </div>
-        </div>
-
-        <div class="header-search">
-            <i class="bi bi-search"></i>
-            <input type="text" id="globalChatSearch"
-                   placeholder="Search chats and people...">
-        </div>
-
-        <div class="header-actions">
-            <span class="active-status">
-                <span class="active-dot"></span>
-                Active
-            </span>
-
-            <div class="profile-circle">
-                {{ current_user.username[:1]|upper }}
+            <!-- Sidebar Header -->
+            <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
+                <h5 class="fw-bold mb-0">Messages</h5>
+                <button class="btn btn-sm btn-primary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#newGroupModal">
+                    <i class="bi bi-people-fill me-1"></i> New Group
+                </button>
             </div>
 
-            <div class="profile-details">
-                <strong>{{ current_user.username }}</strong>
-                <small>ConnectHub member</small>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Layout -->
-    <main class="chat-layout">
-
-        <!-- Navigation Rail -->
-        <aside class="navigation-rail">
-
-            <a href="{{ url_for('dashboard') }}" class="rail-link">
-                <i class="bi bi-grid"></i>
-                <span>Home</span>
-            </a>
-
-            <a href="{{ url_for('chat.index') }}" class="rail-link active">
-                <i class="bi bi-chat-left-text"></i>
-                <span>Chat</span>
-            </a>
-
-            <div class="rail-bottom">
-                <a href="{{ url_for('dashboard') }}" class="rail-link">
-                    <i class="bi bi-house"></i>
-                    <span>Main</span>
-                </a>
-            </div>
-
-        </aside>
-
-        <!-- Chat Sidebar -->
-        <aside class="chat-sidebar">
-
-            <div class="sidebar-top">
-                <h2>Messages</h2>
-
-                <details class="new-chat-menu">
-                    <summary>
-                        <i class="bi bi-plus-lg"></i>
-                        New chat
-                    </summary>
-
-                    <div class="new-chat-options">
-                        <p>Start a conversation</p>
-
-                        <a href="#people-section">
-                            <i class="bi bi-person"></i>
-                            Private chat
-                        </a>
-
-                        <a href="#group-create">
-                            <i class="bi bi-people"></i>
-                            Create group
-                        </a>
-                    </div>
-                </details>
-            </div>
-
-            <div class="sidebar-search">
-                <i class="bi bi-search"></i>
-                <input type="text" id="sidebarChatSearch"
-                       placeholder="Search people or conversations...">
-            </div>
-
-            <!-- Shortcuts -->
-            <div class="sidebar-section">
-
-                <div class="section-heading">
-                    <span>SHORTCUTS</span>
-                </div>
-
-                <a href="#conversation-section"
-                   class="shortcut-link selected">
-                    <i class="bi bi-house-door"></i>
-                    Home
-                </a>
-
-                <a href="#people-section" class="shortcut-link">
-                    <i class="bi bi-people"></i>
-                    All people
-                </a>
-
-                <a href="#group-section" class="shortcut-link">
-                    <i class="bi bi-collection"></i>
-                    Groups
-                </a>
-
-            </div>
-
-            <!-- Existing Conversations -->
-            <div class="sidebar-section conversation-section"
-                 id="conversation-section">
-
-                <div class="section-heading">
-                    <span>YOUR CONVERSATIONS</span>
-                    <span class="section-count">
-                        {{ conversations|length }}
+            <!-- Search input -->
+            <div class="p-3 border-bottom">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0 text-muted" style="border-radius: 10px 0 0 10px;">
+                        <i class="bi bi-search"></i>
                     </span>
+                    <input type="text"
+                           id="chatSearchInput"
+                           class="form-control border-start-0 ps-0 bg-light"
+                           placeholder="Search chats or people..."
+                           style="border-radius: 0 10px 10px 0; font-size: 13px;"
+                           oninput="handleSearch(this.value)">
                 </div>
+            </div>
 
-                <div class="conversation-list" id="conversationList">
+            <!-- Tabs: Conversations vs People -->
+            <ul class="nav nav-tabs nav-fill border-bottom small fw-bold" id="chatTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active py-2" id="chats-tab" data-bs-toggle="tab" data-bs-target="#chatsTabPane" type="button" role="tab">
+                        Recent Chats ({{ conversations|length }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link py-2" id="people-tab" data-bs-toggle="tab" data-bs-target="#peopleTabPane" type="button" role="tab">
+                        All People ({{ users|length }})
+                    </button>
+                </li>
+            </ul>
 
-                    {% for conversation in conversations %}
+            <!-- Tab Content -->
+            <div class="tab-content flex-1 overflow-y-auto" style="height: calc(100% - 160px);">
 
-                        {% set latest = namespace(message=None) %}
-                        {% set unread = namespace(count=0) %}
+                <!-- CONVERSATIONS LIST -->
+                <div class="tab-pane fade show active" id="chatsTabPane" role="tabpanel">
+                    <div id="conversationList">
+                        {% for conv in conversations %}
+                            {% set unread_count = namespace(value=0) %}
+                            {% set last_msg = namespace(text='No messages yet', time='') %}
 
-                        {% for msg in conversation.messages %}
-
-                            {% set latest.message = msg %}
-
-                            {% for receipt in msg.receipts %}
-                                {% if receipt.recipient_id == current_user.id
-                                      and not receipt.read_at
-                                      and not msg.is_deleted %}
-                                    {% set unread.count = unread.count + 1 %}
+                            {% if conv.messages %}
+                                {% set latest = conv.messages[-1] %}
+                                {% if latest.is_deleted %}
+                                    {% set last_msg.text = 'This message was deleted.' %}
+                                {% elif latest.attachment_name %}
+                                    {% set last_msg.text = '📎 ' ~ latest.attachment_name %}
+                                {% else %}
+                                    {% set last_msg.text = latest.content %}
                                 {% endif %}
-                            {% endfor %}
+                                {% set last_msg.time = latest.created_at.strftime('%I:%M %p') if latest.created_at else '' %}
 
-                        {% endfor %}
-
-                        {% if conversation.is_group %}
-
-                            <a class="conversation-item searchable-item
-                                      {% if unread.count > 0 %}has-unread{% endif %}"
-                               id="conversation-{{ conversation.id }}"
-                               data-conversation-id="{{ conversation.id }}"
-                               data-search="{{ (conversation.name or 'Group Chat')|lower }}"
-                               href="{{ url_for('chat.group_chat', conversation_id=conversation.id) }}">
-
-                                <div class="conversation-avatar group-avatar">
-                                    <i class="bi bi-people-fill"></i>
-                                </div>
-
-                                <div class="conversation-info">
-                                    <strong>
-                                        {{ conversation.name or "Group Chat" }}
-                                    </strong>
-
-                                    <small class="last-message">
-                                        {% if latest.message %}
-                                            {% if latest.message.is_deleted %}
-                                                This message was deleted.
-                                            {% elif latest.message.attachment_name %}
-                                                <i class="bi bi-paperclip"></i>
-                                                {{ latest.message.attachment_name }}
-                                            {% else %}
-                                                {{ latest.message.content or "New message" }}
-                                            {% endif %}
-                                        {% else %}
-                                            Group conversation
+                                {% for msg in conv.messages %}
+                                    {% for r in msg.receipts %}
+                                        {% if r.recipient_id == current_user.id and not r.read_at and not msg.is_deleted %}
+                                            {% set unread_count.value = unread_count.value + 1 %}
                                         {% endif %}
-                                    </small>
-                                </div>
+                                    {% endfor %}
+                                {% endfor %}
+                            {% endif %}
 
-                                <div class="conversation-meta">
-                                    <span class="conversation-time">
-                                        {% if latest.message %}
-                                            {{ latest.message.created_at.strftime('%I:%M %p') }}
-                                        {% endif %}
-                                    </span>
-
-                                    <span class="unread-badge"
-                                          {% if unread.count == 0 %}hidden{% endif %}>
-                                        {{ unread.count }}
-                                    </span>
-
-                                    <span class="group-label">Group</span>
-                                </div>
-
-                            </a>
-
-                        {% else %}
-
-                            {% for member in conversation.members %}
-
-                                {% if member.user_id != current_user.id %}
-
-                                    <a class="conversation-item searchable-item
-                                              {% if unread.count > 0 %}has-unread{% endif %}"
-                                       id="conversation-{{ conversation.id }}"
-                                       data-conversation-id="{{ conversation.id }}"
-                                       data-search="{{ (member.user.username if member.user else 'User')|lower }}"
-                                       href="{{ url_for('chat.private_chat', user_id=member.user_id) }}">
-
-                                        <div class="conversation-avatar">
-                                            {{ (member.user.username[:1] if member.user else 'U')|upper }}
+                            {% if conv.is_group %}
+                                <a href="{{ url_for('chat.group_chat', conversation_id=conv.id) }}"
+                                   class="conversation-card-item searchable-item"
+                                   id="conv-item-{{ conv.id }}"
+                                   data-search="{{ (conv.name or 'Group Chat')|lower }}">
+                                    <div class="user-avatar" style="width: 44px; height: 44px; font-size: 18px; background: #0ea5e9; flex-shrink: 0;">
+                                        <i class="bi bi-people-fill"></i>
+                                    </div>
+                                    <div class="overflow-hidden flex-1">
+                                        <div class="d-flex align-items-center justify-content-between mb-1">
+                                            <span class="fw-bold text-dark text-truncate" style="font-size: 13.5px;">{{ conv.name }}</span>
+                                            <small class="text-muted conv-time" data-utc="{{ conv.last_message_at_iso or '' }}" style="font-size: 11px;">{{ last_msg.time }}</small>
                                         </div>
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <span class="text-muted text-truncate conv-preview small" style="font-size: 12px; max-width: 210px;">{{ last_msg.text }}</span>
+                                            <span class="badge rounded-pill bg-primary unread-badge {% if unread_count.value == 0 %}d-none{% endif %}" style="font-size: 10px;">
+                                                {{ unread_count.value }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </a>
+                            {% else %}
+                                {% set partner = namespace(user=None) %}
+                                {% for member in conv.members %}
+                                    {% if member.user_id != current_user.id %}
+                                        {% set partner.user = member.user %}
+                                    {% endif %}
+                                {% endfor %}
 
-                                        <div class="conversation-info">
-                                            <strong>
-                                                {{ member.user.username if member.user else "User" }}
-                                            </strong>
-
-                                            <small class="last-message">
-                                                {% if latest.message %}
-                                                    {% if latest.message.is_deleted %}
-                                                        This message was deleted.
-                                                    {% elif latest.message.attachment_name %}
-                                                        <i class="bi bi-paperclip"></i>
-                                                        {{ latest.message.attachment_name }}
-                                                    {% else %}
-                                                        {{ latest.message.content or "New message" }}
-                                                    {% endif %}
+                                {% if partner.user %}
+                                    <a href="{{ url_for('chat.private_chat', user_id=partner.user.id) }}"
+                                       class="conversation-card-item searchable-item"
+                                       id="conv-item-{{ conv.id }}"
+                                       data-search="{{ partner.user.username|lower }} {{ partner.user.email|lower }}">
+                                        <div class="position-relative flex-shrink-0">
+                                            <div class="user-avatar" style="width: 44px; height: 44px; font-size: 18px;">
+                                                {% if partner.user.profile and partner.user.profile.profile_image %}
+                                                    <img src="{{ url_for('auth.profile_image', user_id=partner.user.id) }}" class="rounded-circle w-100 h-100 object-fit-cover">
                                                 {% else %}
-                                                    Private conversation
+                                                    {{ partner.user.username[:1]|upper }}
                                                 {% endif %}
-                                            </small>
+                                            </div>
+                                            <span class="status-dot offline position-absolute bottom-0 end-0 border border-2 border-white" id="online-dot-{{ partner.user.id }}"></span>
                                         </div>
-
-                                        <div class="conversation-meta">
-                                            <span class="conversation-time">
-                                                {% if latest.message %}
-                                                    {{ latest.message.created_at.strftime('%I:%M %p') }}
-                                                {% endif %}
-                                            </span>
-
-                                            <span class="unread-badge"
-                                                  {% if unread.count == 0 %}hidden{% endif %}>
-                                                {{ unread.count }}
-                                            </span>
-
-                                            <span class="status-dot offline"
-                                                  id="conversation-dot-{{ member.user_id }}">
-                                            </span>
+                                        <div class="overflow-hidden flex-1">
+                                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                                <span class="fw-bold text-dark text-truncate" style="font-size: 13.5px;">{{ partner.user.username }}</span>
+                                                <small class="text-muted conv-time" data-utc="{{ conv.last_message_at_iso or '' }}" style="font-size: 11px;">{{ last_msg.time }}</small>
+                                            </div>
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <span class="text-muted text-truncate conv-preview small" style="font-size: 12px; max-width: 210px;">{{ last_msg.text }}</span>
+                                                <span class="badge rounded-pill bg-primary unread-badge {% if unread_count.value == 0 %}d-none{% endif %}" style="font-size: 10px;">
+                                                    {{ unread_count.value }}
+                                                </span>
+                                            </div>
                                         </div>
-
                                     </a>
-
                                 {% endif %}
-
-                            {% endfor %}
-
-                        {% endif %}
-
-                    {% else %}
-
-                        <div class="empty-sidebar">
-                            <i class="bi bi-chat-square"></i>
-                            <p>No conversations yet.</p>
-                            <small>Start a new chat with someone.</small>
-                        </div>
-
-                    {% endfor %}
-
-                </div>
-            </div>
-
-            <!-- People -->
-            <div class="sidebar-section people-section"
-                 id="people-section">
-
-                <div class="section-heading">
-                    <span>PEOPLE</span>
-                    <span class="section-count">{{ users|length }}</span>
-                </div>
-
-                <div class="people-list" id="peopleList">
-
-                    {% for user in users %}
-
-                        <a class="person-item searchable-item"
-                           href="{{ url_for('chat.private_chat', user_id=user.id) }}"
-                           data-search="{{ user.username|lower }}">
-
-                            <div class="person-avatar">
-                                {{ user.username[:1]|upper }}
+                            {% endif %}
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="bi bi-chat-dots text-muted fs-2 d-block mb-2"></i>
+                                <p class="text-muted small mb-0">No conversations yet.</p>
+                                <small class="text-muted">Click 'All People' tab to start chatting.</small>
                             </div>
-
-                            <div class="person-info">
-                                <strong>{{ user.username }}</strong>
-                                <small id="status-text-{{ user.id }}">
-                                    Offline
-                                </small>
-                            </div>
-
-                            <span class="status-dot offline"
-                                  id="status-dot-{{ user.id }}">
-                            </span>
-
-                        </a>
-
-                    {% else %}
-
-                        <p class="no-people">
-                            No other users registered.
-                        </p>
-
-                    {% endfor %}
-
+                        {% endfor %}
+                    </div>
                 </div>
-            </div>
 
-            <!-- Create Group -->
-            <div class="sidebar-section group-section"
-                 id="group-section">
+                <!-- ALL PEOPLE LIST -->
+                <div class="tab-pane fade" id="peopleTabPane" role="tabpanel">
+                    <div id="peopleList">
+                        {% for user in users %}
+                            <div class="conversation-card-item searchable-item" id="people-item-{{ user.id }}" data-search="{{ user.username|lower }} {{ user.email|lower }}" style="cursor: pointer;" onclick="window.location='{{ url_for('chat.private_chat', user_id=user.id) }}'">
+                                <div class="position-relative flex-shrink-0">
+                                    <div class="user-avatar" id="avatar-user-{{ user.id }}" style="width: 40px; height: 40px; font-size: 16px;">
+                                        {% if user.profile and user.profile.profile_image %}
+                                            <img src="{{ url_for('auth.profile_image', user_id=user.id) }}" class="rounded-circle w-100 h-100 object-fit-cover">
+                                        {% else %}
+                                            {{ user.username[:1]|upper }}
+                                        {% endif %}
+                                    </div>
+                                    <span class="status-dot {% if user.online_status == 'online' %}online{% else %}offline{% endif %} position-absolute bottom-0 end-0 border border-2 border-white" id="people-dot-{{ user.id }}"></span>
+                                </div>
+                                <div class="overflow-hidden flex-1">
+                                    <div class="d-flex align-items-center justify-content-between mb-0.5">
+                                        <a href="{{ url_for('auth.view_user', user_id=user.id) }}" class="text-decoration-none text-dark hover-underline" onclick="event.stopPropagation();">
+                                            <span class="fw-bold text-truncate" style="font-size: 13px;">{{ user.username }}</span>
+                                        </a>
+                                        <span class="small {% if user.online_status == 'online' %}text-success{% else %}text-muted{% endif %} fw-medium" id="people-status-{{ user.id }}" style="font-size: 11px;">
+                                            {% if user.online_status == 'online' %}Online{% else %}Offline{% endif %}
+                                        </span>
+                                    </div>
+                                    <small class="text-muted text-truncate d-block" style="font-size: 11px;">{{ user.email }}</small>
+                                </div>
+                                <div class="d-flex align-items-center gap-1.5 ms-2">
+                                    <a href="{{ url_for('auth.view_user', user_id=user.id) }}" class="btn btn-sm btn-light border py-1 px-2" style="font-size: 11.5px;" title="View Profile" onclick="event.stopPropagation();">
+                                        <i class="bi bi-person"></i>
+                                    </a>
+                                    <a href="{{ url_for('chat.private_chat', user_id=user.id) }}" class="btn btn-sm btn-primary px-3 py-1" style="font-size: 12px;" onclick="event.stopPropagation();">
+                                        Chat
+                                    </a>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <p class="text-muted small">No other registered users found.</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
 
-                <details class="group-create-details" id="group-create">
-
-                    <summary>
-                        <i class="bi bi-plus-circle"></i>
-                        Create a group
-                    </summary>
-
-                    <form method="POST"
-                          action="{{ url_for('chat.create_group') }}"
-                          class="group-form">
-
-                        <input type="hidden"
-                               name="csrf_token"
-                               value="{{ csrf_token() }}">
-
-                        <label for="groupName">Group name</label>
-
-                        <input type="text"
-                               id="groupName"
-                               name="group_name"
-                               maxlength="100"
-                               placeholder="Enter group name"
-                               required>
-
-                        <label>Select members</label>
-
-                        <div class="member-selection">
-
-                            {% for user in users %}
-
-                                <label class="member-option">
-                                    <input type="checkbox"
-                                           name="members"
-                                           value="{{ user.id }}">
-                                    <span>{{ user.username }}</span>
-                                </label>
-
-                            {% endfor %}
-
-                        </div>
-
-                        <button type="submit"
-                                class="create-group-button">
-                            Create group
-                        </button>
-
-                    </form>
-
-                </details>
             </div>
 
         </aside>
 
-        <!-- Main Conversation Area -->
-        <section class="conversation-area">
-
-            <div class="conversation-header">
-                <div>
-                    <h2>Chat</h2>
-                    <p>Your conversations in one place</p>
+        <!-- RIGHT MAIN PANE (PLACEHOLDER) -->
+        <main class="chat-main-pane">
+            <div style="max-width: 400px;">
+                <div class="user-avatar mx-auto mb-3" style="width: 80px; height: 80px; font-size: 36px; background: var(--primary-light); color: var(--primary);">
+                    <i class="bi bi-chat-square-dots-fill"></i>
                 </div>
-
-                <div class="header-chat-icon">
-                    <i class="bi bi-chat-square-text"></i>
-                </div>
-            </div>
-
-            <div class="welcome-area">
-
-                <div class="welcome-illustration">
-                    <i class="bi bi-chat-dots"></i>
-                    <span class="illustration-circle"></span>
-                </div>
-
-                <h3>No conversation selected</h3>
-
-                <p>
-                    Choose a conversation from the list to start messaging,
-                    or start a new chat with someone.
+                <h4 class="fw-bold text-dark mb-2">Real-Time Messaging</h4>
+                <p class="text-muted small mb-4">
+                    Select an existing conversation from the left sidebar or start a new private conversation with any registered team member.
                 </p>
-
-                <a href="#people-section" class="start-chat-button">
-                    <i class="bi bi-plus-lg"></i>
-                    Start a conversation
-                </a>
-
+                <div class="d-flex justify-content-center gap-2">
+                    <button class="btn btn-primary btn-sm px-3" data-bs-toggle="modal" data-bs-target="#newGroupModal">
+                        <i class="bi bi-plus-circle me-1"></i> Create Group Chat
+                    </button>
+                </div>
             </div>
+        </main>
 
-        </section>
+    </div>
 
-    </main>
 </div>
 
-<!-- Flash Messages -->
-{% with messages = get_flashed_messages(with_categories=true) %}
+<!-- CREATE GROUP MODAL -->
+<div class="modal fade" id="newGroupModal" tabindex="-1" aria-labelledby="newGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow" style="border-radius: 18px;">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title fw-bold" id="newGroupModalLabel">
+                    <i class="bi bi-people-fill text-primary me-2"></i>Create New Group
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
 
-    {% for category, message in messages %}
+            <form method="POST" action="{{ url_for('chat.create_group') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-        <div class="flash-message alert alert-{{ category }}">
-            {{ message }}
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label" for="groupNameInput">Group Name <span class="text-danger">*</span></label>
+                        <input type="text"
+                               class="form-control"
+                               id="groupNameInput"
+                               name="group_name"
+                               placeholder="e.g., Engineering Team, Marketing, Project Alpha"
+                               required
+                               maxlength="100">
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label d-block">Select Members (at least 1 other user)</label>
+                        <div class="border rounded-3 p-3" style="max-height: 220px; overflow-y: auto;">
+                            {% for u in users %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="members" value="{{ u.id }}" id="userCheck{{ u.id }}">
+                                    <label class="form-check-label d-flex align-items-center gap-2" for="userCheck{{ u.id }}">
+                                        <span class="user-avatar" style="width: 24px; height: 24px; font-size: 10px;">
+                                            {% if u.profile and u.profile.profile_image %}
+                                                <img src="{{ url_for('auth.profile_image', user_id=u.id) }}" class="rounded-circle w-100 h-100 object-fit-cover">
+                                            {% else %}
+                                                {{ u.username[:1]|upper }}
+                                            {% endif %}
+                                        </span>
+                                        <span class="fw-medium text-dark" style="font-size: 13px;">{{ u.username }}</span>
+                                        <small class="text-muted">({{ u.email }})</small>
+                                    </label>
+                                </div>
+                            {% else %}
+                                <p class="text-muted small mb-0">No other users registered.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-top pt-3">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm px-3">Create Group</button>
+                </div>
+            </form>
         </div>
+    </div>
+</div>
+{% endblock %}
 
-    {% endfor %}
-
-{% endwith %}
-
-<!-- Socket.IO -->
+{% block extra_js %}
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
 <script>
+    const currentUserId = {{ current_user.id }};
 
-    const socket = io();
+    function escapeHtml(str) {
+        if (!str) return '';
+        const p = document.createElement('p');
+        p.textContent = str;
+        return p.innerHTML;
+    }
 
-    const currentUserId = Number("{{ current_user.id }}");
-
-    // --------------------------------------------------
-    // ONLINE / OFFLINE STATUS
-    // --------------------------------------------------
-
-    function updateUserStatus(userId, status) {
-
-        const isOnline = status === "online";
-
-        const dot = document.getElementById(
-            "status-dot-" + userId
-        );
-
-        const text = document.getElementById(
-            "status-text-" + userId
-        );
-
-        const conversationDot = document.getElementById(
-            "conversation-dot-" + userId
-        );
-
-        if (dot) {
-            dot.className = "status-dot " +
-                (isOnline ? "online" : "offline");
+    function parseUtcDate(utcStr) {
+        if (!utcStr) return null;
+        let s = String(utcStr).trim();
+        if (!s.endsWith("Z") && !s.includes("+")) {
+            s += "Z";
         }
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+    }
 
-        if (text) {
-            text.textContent = isOnline ? "Online" : "Offline";
-        }
+    function formatChatTime(utcDateStr, shortFormat = true) {
+        const d = parseUtcDate(utcDateStr);
+        if (!d) return "";
 
-        if (conversationDot) {
-            conversationDot.className = "status-dot " +
-                (isOnline ? "online" : "offline");
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const msgDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const diffDays = Math.round((today - msgDate) / (1000 * 60 * 60 * 24));
+
+        let hours = d.getHours();
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        const strHours = String(hours).padStart(2, '0');
+        const timeStr = `${strHours}:${minutes} ${ampm}`;
+
+        if (diffDays === 0) {
+            return timeStr;
+        } else if (diffDays === 1) {
+            return shortFormat ? "Yesterday" : `Yesterday, ${timeStr}`;
+        } else if (diffDays < 7 && diffDays > 1) {
+            const weekday = d.toLocaleDateString(undefined, { weekday: 'short' });
+            return shortFormat ? weekday : `${weekday}, ${timeStr}`;
+        } else {
+            const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            return shortFormat ? dateStr : `${dateStr}, ${timeStr}`;
         }
     }
 
+    function refreshAllConvTimes() {
+        document.querySelectorAll(".conv-time[data-utc]").forEach(el => {
+            const utc = el.getAttribute("data-utc");
+            if (utc) {
+                const formatted = formatChatTime(utc, true);
+                if (formatted) el.textContent = formatted;
+                const d = parseUtcDate(utc);
+                if (d) el.title = d.toLocaleString();
+            }
+        });
+    }
 
-    socket.on("connect", function () {
+    document.addEventListener("DOMContentLoaded", refreshAllConvTimes);
+
+    const socket = io({
+        transports: ['polling', 'websocket'],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000
+    });
+
+    // Request online users list on connection
+    socket.on("connect", () => {
         socket.emit("request_online_users");
+        refreshAllConvTimes();
     });
 
-
-    socket.on("online_users", function (data) {
-
-        const onlineIds = (data.user_ids || []).map(Number);
-
-        document.querySelectorAll("[id^='status-dot-']").forEach(dot => {
-
-            const userId = dot.id.replace("status-dot-", "");
-
-            updateUserStatus(
-                userId,
-                onlineIds.includes(Number(userId))
-                    ? "online"
-                    : "offline"
-            );
-
+    socket.on("online_users", (data) => {
+        const ids = (data.user_ids || []).map(Number);
+        document.querySelectorAll("[id^='online-dot-'], [id^='people-dot-']").forEach(dot => {
+            const uid = Number(dot.id.split("-").pop());
+            const isOnline = ids.includes(uid);
+            dot.className = "status-dot " + (isOnline ? "online" : "offline") + " position-absolute bottom-0 end-0 border border-2 border-white";
+            const lbl = document.getElementById("people-status-" + uid);
+            if (lbl) {
+                lbl.textContent = isOnline ? "Online" : "Offline";
+                lbl.className = "small fw-medium " + (isOnline ? "text-success" : "text-muted");
+            }
         });
-
     });
 
+    socket.on("user_status", (data) => {
+        const isOnline = (data.status === "online");
+        const dot1 = document.getElementById("online-dot-" + data.user_id);
+        const dot2 = document.getElementById("people-dot-" + data.user_id);
+        const cls = "status-dot " + (isOnline ? "online" : "offline") + " position-absolute bottom-0 end-0 border border-2 border-white";
+        if (dot1) dot1.className = cls;
+        if (dot2) dot2.className = cls;
 
-    socket.on("user_status", function (data) {
-        updateUserStatus(data.user_id, data.status);
+        const lbl = document.getElementById("people-status-" + data.user_id);
+        if (lbl) {
+            lbl.textContent = isOnline ? "Online" : "Offline";
+            lbl.className = "small fw-medium " + (isOnline ? "text-success" : "text-muted");
+        }
     });
 
-
-    // --------------------------------------------------
-    // REAL-TIME CONVERSATION LIST UPDATE
-    // --------------------------------------------------
-
-    function formatMessageTime(value) {
-
-        if (!value) return "";
-
-        let date = new Date(value);
-
-        if (isNaN(date.getTime())) {
-            return "";
+    socket.on("profile_updated", (data) => {
+        const avatarEl = document.getElementById("avatar-user-" + data.user_id);
+        if (avatarEl) {
+            if (data.profile_image) {
+                avatarEl.innerHTML = `<img src="/auth/profile-image/${data.user_id}?t=${new Date().getTime()}" class="rounded-circle w-100 h-100 object-fit-cover">`;
+            } else {
+                avatarEl.innerHTML = (data.username || "U").substring(0, 1).toUpperCase();
+            }
         }
+    });
 
-        return date.toLocaleTimeString("en-IN", {
-            timeZone: "Asia/Kolkata",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true
-        });
-    }
+    // Dynamic arrival of newly registered users
+    socket.on("new_user_registered", (data) => {
+        if (Number(data.user_id) === currentUserId) return;
+        if (document.getElementById("people-item-" + data.user_id)) return;
 
+        const peopleList = document.getElementById("peopleList");
+        if (!peopleList) return;
 
-    function updateConversationList(data) {
+        const emptyState = peopleList.querySelector(".text-center.py-5");
+        if (emptyState) emptyState.remove();
 
-        const conversationId = Number(data.conversation_id);
+        const avatarHtml = data.avatar_url 
+            ? `<img src="${data.avatar_url}" class="rounded-circle w-100 h-100 object-fit-cover">`
+            : escapeHtml((data.username || "U").substring(0, 1).toUpperCase());
 
-        if (!conversationId) return;
+        const isOnline = (data.online_status === "online");
 
-        const conversation = document.getElementById(
-            "conversation-" + conversationId
-        );
+        const item = document.createElement("div");
+        item.className = "conversation-card-item searchable-item";
+        item.id = "people-item-" + data.user_id;
+        item.dataset.search = (data.username + " " + data.email).toLowerCase();
+        item.style.cursor = "pointer";
+        item.onclick = () => { window.location = `/chat/user/${data.user_id}`; };
 
-        // The conversation must already exist in this user's list.
-        if (!conversation) return;
+        item.innerHTML = `
+            <div class="position-relative flex-shrink-0">
+                <div class="user-avatar" id="avatar-user-${data.user_id}" style="width: 40px; height: 40px; font-size: 16px;">
+                    ${avatarHtml}
+                </div>
+                <span class="status-dot ${isOnline ? 'online' : 'offline'} position-absolute bottom-0 end-0 border border-2 border-white" id="people-dot-${data.user_id}"></span>
+            </div>
+            <div class="overflow-hidden flex-1">
+                <div class="d-flex align-items-center justify-content-between mb-0.5">
+                    <a href="/auth/user/${data.user_id}" class="text-decoration-none text-dark hover-underline" onclick="event.stopPropagation();">
+                        <span class="fw-bold text-truncate" style="font-size: 13px;">${escapeHtml(data.username)}</span>
+                    </a>
+                    <span class="small ${isOnline ? 'text-success' : 'text-muted'} fw-medium" id="people-status-${data.user_id}" style="font-size: 11px;">
+                        ${isOnline ? 'Online' : 'Offline'}
+                    </span>
+                </div>
+                <small class="text-muted text-truncate d-block" style="font-size: 11px;">${escapeHtml(data.email)}</small>
+            </div>
+            <div class="d-flex align-items-center gap-1.5 ms-2">
+                <a href="/auth/user/${data.user_id}" class="btn btn-sm btn-light border py-1 px-2" style="font-size: 11.5px;" title="View Profile" onclick="event.stopPropagation();">
+                    <i class="bi bi-person"></i>
+                </a>
+                <a href="/chat/user/${data.user_id}" class="btn btn-sm btn-primary px-3 py-1" style="font-size: 12px;" onclick="event.stopPropagation();">
+                    Chat
+                </a>
+            </div>
+        `;
 
-        const preview = conversation.querySelector(".last-message");
-        const time = conversation.querySelector(".conversation-time");
-        const badge = conversation.querySelector(".unread-badge");
+        peopleList.appendChild(item);
 
-        // Update latest message preview.
-        if (preview) {
-            preview.textContent =
-                data.last_message || "New message";
+        const peopleTab = document.getElementById("people-tab");
+        if (peopleTab) {
+            const count = peopleList.querySelectorAll(".conversation-card-item").length;
+            peopleTab.textContent = `All People (${count})`;
         }
+    });
 
-        // Update message time.
-        if (time) {
-            time.textContent = formatMessageTime(
-                data.last_message_at
-            );
-        }
+    socket.on("conversation_list_update", (data) => {
+        let item = document.getElementById("conv-item-" + data.conversation_id);
+        const list = document.getElementById("conversationList");
+        if (!list) return;
 
-        // Increase unread count only for messages sent by others.
-        if (Number(data.sender_id) !== currentUserId) {
+        const formattedTime = formatChatTime(data.last_message_at, true);
 
-            if (badge) {
+        if (item) {
+            const preview = item.querySelector(".conv-preview");
+            if (preview) preview.textContent = data.last_message;
 
-                let count = Number(badge.textContent.trim()) || 0;
-
-                count += 1;
-
-                badge.textContent = count;
-                badge.hidden = false;
+            const time = item.querySelector(".conv-time");
+            if (time) {
+                time.textContent = formattedTime;
+                time.setAttribute("data-utc", data.last_message_at || "");
+                const d = parseUtcDate(data.last_message_at);
+                if (d) time.title = d.toLocaleString();
             }
 
-            conversation.classList.add("has-unread");
+            const badge = item.querySelector(".unread-badge");
+            if (badge && Number(data.sender_id) !== currentUserId) {
+                let cur = Number(badge.textContent.trim()) || 0;
+                badge.textContent = cur + 1;
+                badge.classList.remove("d-none");
+            }
+
+            list.prepend(item);
+        } else {
+            // New conversation dynamically received
+            const emptyState = list.querySelector(".text-center.py-5");
+            if (emptyState) emptyState.remove();
+
+            const isUnread = (Number(data.sender_id) !== currentUserId);
+            const link = data.is_group 
+                ? `/chat/group/${data.conversation_id}` 
+                : (data.partner_id ? `/chat/user/${data.partner_id}` : `/chat/conversation/${data.conversation_id}`);
+
+            let avatarContent = '';
+            if (data.is_group) {
+                avatarContent = `<div class="user-avatar" style="width: 44px; height: 44px; font-size: 18px; background: #0ea5e9; flex-shrink: 0;"><i class="bi bi-people-fill"></i></div>`;
+            } else {
+                const initial = (data.title || "U").substring(0, 1).toUpperCase();
+                const avatarInner = data.has_avatar 
+                    ? `<img src="/auth/profile-image/${data.partner_id}" class="rounded-circle w-100 h-100 object-fit-cover">`
+                    : escapeHtml(initial);
+                avatarContent = `
+                    <div class="position-relative flex-shrink-0">
+                        <div class="user-avatar" style="width: 44px; height: 44px; font-size: 18px;">${avatarInner}</div>
+                        <span class="status-dot offline position-absolute bottom-0 end-0 border border-2 border-white" id="online-dot-${data.partner_id}"></span>
+                    </div>
+                `;
+            }
+
+            const searchStr = ((data.title || '') + ' ' + (data.partner_email || '')).toLowerCase();
+
+            item = document.createElement("a");
+            item.href = link;
+            item.className = "conversation-card-item searchable-item";
+            item.id = "conv-item-" + data.conversation_id;
+            item.dataset.search = searchStr;
+
+            const d = parseUtcDate(data.last_message_at);
+            const titleDate = d ? d.toLocaleString() : '';
+
+            item.innerHTML = `
+                ${avatarContent}
+                <div class="overflow-hidden flex-1">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="fw-bold text-dark text-truncate" style="font-size: 13.5px;">${escapeHtml(data.title || 'Conversation')}</span>
+                        <small class="text-muted conv-time" data-utc="${data.last_message_at || ''}" title="${titleDate}" style="font-size: 11px;">${formattedTime}</small>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="text-muted text-truncate conv-preview small" style="font-size: 12px; max-width: 210px;">${escapeHtml(data.last_message || '')}</span>
+                        <span class="badge rounded-pill bg-primary unread-badge ${isUnread ? '' : 'd-none'}" style="font-size: 10px;">
+                            ${isUnread ? '1' : '0'}
+                        </span>
+                    </div>
+                </div>
+            `;
+
+            list.prepend(item);
+
+            const chatsTab = document.getElementById("chats-tab");
+            if (chatsTab) {
+                const count = list.querySelectorAll(".conversation-card-item").length;
+                chatsTab.textContent = `Recent Chats (${count})`;
+            }
+
+            socket.emit("request_online_users");
         }
-
-        // Move this conversation to the top.
-        const list = document.getElementById("conversationList");
-
-        if (list && list.firstElementChild !== conversation) {
-            list.prepend(conversation);
-        }
-
-        // Keep the search filter working.
-        const searchValue = document.getElementById(
-            "sidebarChatSearch"
-        ).value;
-
-        if (searchValue) {
-            filterChatItems(searchValue);
-        }
-    }
-
-
-    socket.on("conversation_list_update", function (data) {
-        updateConversationList(data);
     });
 
-
-    // --------------------------------------------------
-    // SEARCH CONVERSATIONS AND PEOPLE
-    // --------------------------------------------------
-
-    function filterChatItems(searchValue) {
-
-        const search = searchValue.toLowerCase().trim();
-
+    function handleSearch(query) {
+        const q = query.toLowerCase().trim();
         document.querySelectorAll(".searchable-item").forEach(item => {
-
-            const itemText = item.dataset.search || "";
-
-            item.style.display = itemText.includes(search)
-                ? "flex"
-                : "none";
-
+            const text = item.dataset.search || "";
+            item.style.display = text.includes(q) ? "" : "none";
         });
-
     }
-
-
-    document.getElementById("sidebarChatSearch").addEventListener(
-        "input",
-        function () {
-
-            filterChatItems(this.value);
-
-            document.getElementById(
-                "globalChatSearch"
-            ).value = this.value;
-
-        }
-    );
-
-
-    document.getElementById("globalChatSearch").addEventListener(
-        "input",
-        function () {
-
-            filterChatItems(this.value);
-
-            document.getElementById(
-                "sidebarChatSearch"
-            ).value = this.value;
-
-        }
-    );
-
 </script>
-
-</body>
-</html>
+{% endblock %}

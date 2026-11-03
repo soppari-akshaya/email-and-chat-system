@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Email Oversight - Admin{% endblock %}
+{% block page_title %}Email Oversight{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <!-- TOOLBAR & FILTERS -->
+    <div class="hub-card mb-3 p-3">
+        <div class="row g-2 align-items-center justify-content-between">
+            <div class="col-md-8">
+                <form method="GET" action="{{ url_for('admin.emails') }}" class="d-flex flex-wrap align-items-center gap-2">
+                    <div class="input-group" style="max-width: 280px;">
+                        <span class="input-group-text bg-light border-end-0 text-muted" style="border-radius: 10px 0 0 10px;">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text"
+                               name="q"
+                               class="form-control border-start-0 ps-0 bg-light"
+                               placeholder="Search email contents..."
+                               value="{{ search }}"
+                               style="border-radius: 0 10px 10px 0; font-size: 13px;">
+                    </div>
+
+                    <!-- Folder Filter -->
+                    <select name="folder" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                        <option value="">All Folders</option>
+                        <option value="inbox" {% if folder_filter == 'inbox' %}selected{% endif %}>Inbox</option>
+                        <option value="sent" {% if folder_filter == 'sent' %}selected{% endif %}>Sent</option>
+                        <option value="drafts" {% if folder_filter == 'drafts' %}selected{% endif %}>Drafts</option>
+                        <option value="trash" {% if folder_filter == 'trash' %}selected{% endif %}>Trash</option>
+                    </select>
+
+                    {% if search or folder_filter %}
+                        <a href="{{ url_for('admin.emails') }}" class="btn btn-sm btn-link text-muted">Clear</a>
+                    {% endif %}
+                </form>
+            </div>
+
+            <div class="col-md-4 text-md-end text-muted small">
+                Showing: <strong class="text-dark">{{ emails|length }}</strong> records
+            </div>
+        </div>
+    </div>
+
+    <!-- EMAILS TABLE -->
+    <div class="hub-card overflow-hidden">
+        <div class="table-responsive">
+            <table class="hub-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Sender</th>
+                        <th>Recipient</th>
+                        <th>Subject & Body Preview</th>
+                        <th>Folder</th>
+                        <th>Files</th>
+                        <th>Date</th>
+                        <th class="text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in emails %}
+                        <tr>
+                            <td class="text-muted small">{{ m.id }}</td>
+                            <td class="small fw-semibold">{{ m.sender.username if m.sender else 'Unknown' }}</td>
+                            <td class="small text-muted">{{ m.recipient.username if m.recipient else 'Unknown' }}</td>
+                            <td>
+                                <div class="text-truncate fw-semibold text-dark" style="max-width: 250px;">
+                                    {{ m.subject or '(No subject)' }}
+                                </div>
+                                <small class="text-muted text-truncate d-block" style="max-width: 250px;">
+                                    {{ m.body[:60] if m.body else '' }}
+                                </small>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border small">{{ m.folder|capitalize }}</span>
+                            </td>
+                            <td>
+                                {% if m.attachments %}
+                                    <span class="badge bg-secondary">{{ m.attachments|length }}</span>
+                                {% else %}
+                                    <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="small text-muted text-nowrap">
+                                {{ m.created_at.strftime('%d %b %Y, %I:%M %p') if m.created_at else '' }}
+                            </td>
+                            <td class="text-center">
+                                <form method="POST" action="{{ url_for('admin.delete_email', email_id=m.id) }}" class="d-inline"
+                                      onsubmit="return confirm('Permanently delete this email record?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-2" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">No emails found.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
