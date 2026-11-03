@@ -60,6 +60,7 @@ def paginate_query(query, page, per_page=PER_PAGE):
 
 
 @email_bp.route("/")
+@email_bp.route("/inbox")
 @login_required
 def inbox():
     search = request.args.get("q", "").strip()
