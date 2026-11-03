@@ -337,7 +337,7 @@ def compose():
         if not recipient:
             flash("Please specify a recipient email.", "warning")
             prefill.update({"recipient": recipient, "subject": subject, "body": body, "label": label or ""})
-            return render_template("email/compose.html", prefill=prefill, counts=get_email_counts(), registered_users=User.query.filter(User.id != current_user.id, or_(User.is_active.is_(True), User.is_active == 1)).order_by(User.username).all())
+            return render_template("email/compose.html", prefill=prefill, counts=get_email_counts(), registered_users=User.query.filter(User.id != current_user.id, User.is_active.is_(True)).order_by(User.username).all())
 
         try:
             send_email(current_user, recipient, subject, body, attachment_files=attachments, label=label)
@@ -355,7 +355,7 @@ def compose():
             flash(str(error), "danger")
             prefill.update({"recipient": recipient, "subject": subject, "body": body, "label": label or ""})
 
-    registered_users = User.query.filter(User.id != current_user.id, or_(User.is_active.is_(True), User.is_active == 1)).order_by(User.username).all()
+    registered_users = User.query.filter(User.id != current_user.id, User.is_active.is_(True)).order_by(User.username).all()
 
     return render_template(
         "email/compose.html",

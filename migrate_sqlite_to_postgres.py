@@ -273,3 +273,4 @@ def migrate(sqlite_db_path="application.db", pg_url=None):
 
 if __name__ == "__main__":
     migrate()
+

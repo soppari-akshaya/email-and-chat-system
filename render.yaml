@@ -27,3 +27,4 @@ databases:
     user: connecthub_user
     region: oregon
     plan: free
+

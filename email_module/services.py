@@ -80,7 +80,7 @@ def find_user_by_email_or_username(input_str):
     # 1. Primary check: Case-insensitive email match
     user = User.query.filter(
         func.lower(func.trim(User.email)) == clean_email,
-        or_(User.is_active.is_(True), User.is_active == 1)
+        User.is_active.is_(True)
     ).first()
     if user:
         return user
@@ -89,7 +89,7 @@ def find_user_by_email_or_username(input_str):
     raw_lower = raw.lower()
     user = User.query.filter(
         func.lower(func.trim(User.email)) == raw_lower,
-        or_(User.is_active.is_(True), User.is_active == 1)
+        User.is_active.is_(True)
     ).first()
     if user:
         return user
@@ -97,7 +97,7 @@ def find_user_by_email_or_username(input_str):
     # 3. Check username match
     user = User.query.filter(
         func.lower(func.trim(User.username)) == raw_lower,
-        or_(User.is_active.is_(True), User.is_active == 1)
+        User.is_active.is_(True)
     ).first()
     if user:
         return user
@@ -107,7 +107,7 @@ def find_user_by_email_or_username(input_str):
     if name_prefix:
         user = User.query.filter(
             func.lower(func.trim(User.username)) == name_prefix,
-            or_(User.is_active.is_(True), User.is_active == 1)
+            User.is_active.is_(True)
         ).first()
         if user:
             return user

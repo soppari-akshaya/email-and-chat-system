@@ -184,7 +184,7 @@ def broadcast_attachment_message(message):
 def index():
     users = User.query.filter(
         User.id != current_user.id,
-        or_(User.is_active.is_(True), User.is_active == 1)
+        User.is_active.is_(True)
     ).order_by(User.username).all()
 
     memberships = ConversationMember.query.filter_by(
@@ -234,7 +234,7 @@ def index():
 def private_chat(user_id):
     other_user = User.query.filter(
         User.id == user_id,
-        or_(User.is_active.is_(True), User.is_active == 1)
+        User.is_active.is_(True)
     ).first_or_404()
 
     if other_user.id == current_user.id:
