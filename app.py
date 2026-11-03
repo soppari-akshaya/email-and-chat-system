@@ -232,6 +232,30 @@ def create_app(config_class=Config, test_config=None):
         db.create_all()
         ensure_db_schema(app)
 
+        try:
+            admin = User.query.filter_by(email="admin@connecthub.com").first()
+            if not admin:
+                admin = User(
+                    username="admin",
+                    email="admin@connecthub.com",
+                    role="admin",
+                    is_active=True,
+                    is_verified=True,
+                    online_status="offline"
+                )
+                admin.set_password("AdminPass123!")
+                admin.profile = UserProfile(
+                    full_name="System Administrator",
+                    bio="ConnectHub Platform Administrator"
+                )
+                db.session.add(admin)
+                db.session.commit()
+            elif admin.role != "admin":
+                admin.role = "admin"
+                db.session.commit()
+        except Exception as e:
+            app.logger.warning(f"Admin init warning: {e}")
+
     return app
 
 
