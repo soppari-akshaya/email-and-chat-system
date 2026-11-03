@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,13 +16,11 @@
     <!-- Global App Stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
-    <!-- Early Theme Initialization to Prevent FOUC -->
     <script>
-        (function() {
-            var theme = localStorage.getItem('connecthub_theme') || localStorage.getItem('theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-theme', theme);
-            document.documentElement.setAttribute('data-bs-theme', theme);
-        })();
+        try {
+            localStorage.removeItem('connecthub_theme');
+            localStorage.removeItem('theme');
+        } catch (e) {}
     </script>
 
     <style>
@@ -172,25 +170,20 @@
         </div>
 
         <div class="sidebar-footer">
-            <div class="d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-2 overflow-hidden">
-                    <div class="user-avatar flex-shrink-0" style="width: 32px; height: 32px; font-size: 13px;">
-                        {% if current_user.profile and current_user.profile.profile_image %}
-                            <img src="{{ url_for('auth.profile_image', user_id=current_user.id) }}"
-                                 alt="{{ current_user.username }}"
-                                 class="rounded-circle w-100 h-100 object-fit-cover">
-                        {% else %}
-                            {{ current_user.username[:1]|upper }}
-                        {% endif %}
-                    </div>
-                    <div class="overflow-hidden">
-                        <div class="fw-semibold text-truncate" style="font-size: 13px;">{{ current_user.username }}</div>
-                        <div class="text-muted text-truncate" style="font-size: 11px;">{{ current_user.email }}</div>
-                    </div>
+            <div class="d-flex align-items-center gap-2">
+                <div class="user-avatar" style="width: 32px; height: 32px; font-size: 13px;">
+                    {% if current_user.profile and current_user.profile.profile_image %}
+                        <img src="{{ url_for('auth.profile_image', user_id=current_user.id) }}"
+                             alt="{{ current_user.username }}"
+                             class="rounded-circle w-100 h-100 object-fit-cover">
+                    {% else %}
+                        {{ current_user.username[:1]|upper }}
+                    {% endif %}
                 </div>
-                <button type="button" class="btn btn-sm btn-icon border-0 p-1 text-muted sidebar-theme-toggle" id="sidebarThemeToggle" title="Toggle Light / Dark Theme" aria-label="Toggle theme">
-                    <i class="bi bi-moon-stars fs-6 theme-icon-sidebar"></i>
-                </button>
+                <div class="overflow-hidden">
+                    <div class="fw-semibold text-truncate" style="font-size: 13px;">{{ current_user.username }}</div>
+                    <div class="text-muted text-truncate" style="font-size: 11px;">{{ current_user.email }}</div>
+                </div>
             </div>
         </div>
 
@@ -228,12 +221,6 @@
                     <i class="bi bi-chat-dots"></i>
                 </a>
 
-                <!-- Theme Toggle Button (Light/Dark) directly at the side of the profile -->
-                <button type="button" class="topbar-icon-btn theme-toggle-btn" id="themeToggleBtn" title="Switch Theme (Light / Dark)" aria-label="Toggle light and dark theme">
-                    <i class="bi bi-moon-stars-fill theme-icon-dark" style="font-size: 15px;"></i>
-                    <i class="bi bi-sun-fill theme-icon-light d-none" style="font-size: 16px; color: #f59e0b;"></i>
-                </button>
-
                 <!-- User Dropdown Menu -->
                 <div class="dropdown">
                     <div class="user-dropdown-btn" data-bs-toggle="dropdown" aria-expanded="false">
@@ -250,7 +237,7 @@
                         <i class="bi bi-chevron-down text-muted" style="font-size: 11px;"></i>
                     </div>
 
-                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-2" style="border-radius: 12px; min-width: 210px;">
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-2" style="border-radius: 12px; min-width: 200px;">
                         <li class="px-3 py-2 border-bottom">
                             <div class="fw-bold">{{ current_user.username }}</div>
                             <small class="text-muted">{{ current_user.email }}</small>
@@ -262,12 +249,6 @@
                             <a class="dropdown-item py-2" href="{{ url_for('auth.profile') }}">
                                 <i class="bi bi-person me-2 text-primary"></i>Profile & Settings
                             </a>
-                        </li>
-                        <li>
-                            <button class="dropdown-item py-2 d-flex align-items-center justify-content-between" type="button" id="dropdownThemeToggle">
-                                <span><i class="bi bi-circle-half me-2 text-primary"></i>Theme</span>
-                                <span class="badge rounded-pill bg-light text-dark border px-2 py-1" id="dropdownThemeLabel">Light Mode</span>
-                            </button>
                         </li>
                         {% if is_admin %}
                         <li>

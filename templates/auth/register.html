@@ -12,15 +12,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
-    <!-- Early Theme Initialization to Prevent FOUC -->
-    <script>
-        (function() {
-            var theme = localStorage.getItem('connecthub_theme') || localStorage.getItem('theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-theme', theme);
-            document.documentElement.setAttribute('data-bs-theme', theme);
-        })();
-    </script>
-
     <style>
         body {
             background: linear-gradient(135deg, #f7f6fd 0%, #e9e6fa 100%);
@@ -43,14 +34,7 @@
 </head>
 <body>
 
-<div class="auth-card position-relative">
-
-    <div class="position-absolute top-0 end-0 p-3">
-        <button type="button" class="btn btn-sm btn-icon border-0 text-muted" id="themeToggleBtn" title="Toggle Light / Dark Theme" aria-label="Toggle theme">
-            <i class="bi bi-moon-stars fs-6 theme-icon-dark"></i>
-            <i class="bi bi-sun-fill fs-6 text-warning theme-icon-light d-none"></i>
-        </button>
-    </div>
+<div class="auth-card">
 
     <div class="text-center mb-4">
         <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-4 mb-3"
@@ -179,6 +163,7 @@
                 googleProvider = new firebase.auth.GoogleAuthProvider();
                 googleProvider.addScope("profile");
                 googleProvider.addScope("email");
+                googleProvider.setCustomParameters({ prompt: "select_account" });
             }
         } catch (e) {
             console.warn("Firebase client configuration notice:", e);
@@ -230,8 +215,23 @@
             }
         } catch (err) {
             console.error("Google Auth error:", err);
-            if (err.code !== "auth/popup-closed-by-user" && err.code !== "auth/cancelled-popup-request") {
-                alertBox.textContent = err.message || "An error occurred during Google Sign-In.";
+            let userMsg = "An error occurred during Google Sign-In. Please try again or register with your email.";
+            if (err.code === "auth/configuration-not-found") {
+                userMsg = "Google Sign-In is not enabled yet in the Firebase project. Please enable Google as a sign-in provider in Firebase Console under Authentication -> Sign-in method.";
+            } else if (err.code === "auth/unauthorized-domain") {
+                userMsg = "This domain is not authorized in Firebase Console. Please add " + window.location.hostname + " under Firebase Console -> Authentication -> Settings -> Authorized domains.";
+            } else if (err.code === "auth/popup-blocked") {
+                userMsg = "The Google sign-in popup was blocked by your browser. Please allow popups for this site and try again.";
+            } else if (err.code === "auth/network-request-failed") {
+                userMsg = "Network error connecting to Google Auth. Please check your internet connection.";
+            } else if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
+                userMsg = "";
+            } else if (err.message) {
+                userMsg = err.message;
+            }
+
+            if (userMsg) {
+                alertBox.textContent = userMsg;
                 alertBox.classList.remove("d-none");
             }
             btn.disabled = false;
@@ -239,6 +239,5 @@
         }
     }
 </script>
-<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 </body>
 </html>
