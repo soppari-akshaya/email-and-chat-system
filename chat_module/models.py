@@ -11,9 +11,28 @@ class Conversation(db.Model):
     __tablename__ = "conversations"
 
     id = db.Column(db.Integer, primary_key=True)
-    is_group = db.Column(db.Boolean, default=False, nullable=False)
+
+    is_group = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False
+    )
+
     name = db.Column(db.String(100), nullable=True)
-    created_at = db.Column(db.DateTime(timezone=True), default=utc_now)
+
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=utc_now
+    )
+
+    # Updated whenever a new message is sent.
+    # Used to display the latest active conversation first.
+    last_message_at = db.Column(
+        db.DateTime(timezone=True),
+        default=utc_now,
+        nullable=True,
+        index=True
+    )
 
     members = db.relationship(
         "ConversationMember",
@@ -48,7 +67,10 @@ class ConversationMember(db.Model):
         index=True
     )
 
-    joined_at = db.Column(db.DateTime(timezone=True), default=utc_now)
+    joined_at = db.Column(
+        db.DateTime(timezone=True),
+        default=utc_now
+    )
 
     user = db.relationship("User")
 
@@ -85,6 +107,46 @@ class ChatMessage(db.Model):
     created_at = db.Column(
         db.DateTime(timezone=True),
         default=utc_now
+    )
+
+    # Attachment support
+    attachment_name = db.Column(
+        db.String(255),
+        nullable=True
+    )
+
+    attachment_path = db.Column(
+        db.String(500),
+        nullable=True
+    )
+
+    attachment_mimetype = db.Column(
+        db.String(150),
+        nullable=True
+    )
+
+    attachment_size = db.Column(
+        db.Integer,
+        nullable=True
+    )
+
+    # Message editing support
+    is_edited = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False
+    )
+
+    edited_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=True
+    )
+
+    # Message deletion support
+    is_deleted = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False
     )
 
     sender = db.relationship("User")

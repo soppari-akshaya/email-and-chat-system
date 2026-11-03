@@ -4,40 +4,557 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sent | ConnectHub</title>
+    <title>Sent Emails | ConnectHub</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #7567d8;
+            --primary-dark: #6254c7;
+            --background: #f6f5fc;
+            --surface: #ffffff;
+            --text: #29263d;
+            --muted: #89869c;
+            --border: #eeecf5;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--background);
+            color: var(--text);
+            font-family: "Segoe UI", Arial, sans-serif;
+        }
+
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 245px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 28px 18px;
+            flex-shrink: 0;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 0 10px;
+            margin-bottom: 38px;
+            font-size: 22px;
+            font-weight: 750;
+            color: var(--primary);
+        }
+
+        .brand-icon {
+            width: 39px;
+            height: 39px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #efedff;
+            border-radius: 12px;
+            font-size: 20px;
+        }
+
+        .compose-btn {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 12px;
+            background: var(--primary);
+            color: white;
+            font-weight: 600;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 9px;
+            text-decoration: none;
+            transition: 0.2s;
+        }
+
+        .compose-btn:hover {
+            background: var(--primary-dark);
+            color: white;
+        }
+
+        .nav-heading {
+            margin: 30px 10px 12px;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+        }
+
+        .side-link {
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            padding: 12px 13px;
+            margin-bottom: 5px;
+            color: #69667c;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .side-link i {
+            font-size: 17px;
+        }
+
+        .side-link.active,
+        .side-link:hover {
+            background: #efedff;
+            color: var(--primary);
+        }
+
+        .side-link.active {
+            font-weight: 650;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+            padding: 30px 38px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .page-title {
+            font-size: 26px;
+            font-weight: 750;
+            margin: 0;
+        }
+
+        .page-subtitle {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 5px;
+        }
+
+        .profile-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: #e9e5ff;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 19px;
+        }
+
+        .email-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 17px;
+            overflow: hidden;
+            box-shadow: 0 5px 22px rgba(54, 43, 100, 0.035);
+        }
+
+        .panel-header {
+            padding: 22px 25px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .panel-header h5 {
+            margin: 0;
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .email-count {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .email-item {
+            display: block;
+            padding: 19px 25px;
+            border-bottom: 1px solid #f1eff7;
+            color: inherit;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .email-item:last-child {
+            border-bottom: none;
+        }
+
+        .email-item:hover {
+            background: #faf9ff;
+        }
+
+        .email-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .email-subject {
+            font-size: 14px;
+            font-weight: 650;
+            color: #39354f;
+            margin-bottom: 7px;
+            overflow-wrap: anywhere;
+        }
+
+        .recipient {
+            color: #77738b;
+            font-size: 12px;
+        }
+
+        .email-date {
+            color: var(--muted);
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .email-preview {
+            color: #89869b;
+            font-size: 12px;
+            margin: 9px 0 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 750px;
+        }
+
+        .empty-state {
+            padding: 75px 20px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            width: 75px;
+            height: 75px;
+            border-radius: 22px;
+            background: #f0eeff;
+            color: var(--primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 18px;
+            font-size: 31px;
+        }
+
+        .empty-state h5 {
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #77738b;
+            text-decoration: none;
+            font-size: 13px;
+            margin-top: 22px;
+        }
+
+        .back-link:hover {
+            color: var(--primary);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 75px;
+                padding: 22px 10px;
+            }
+
+            .brand {
+                justify-content: center;
+                padding: 0;
+                font-size: 0;
+                margin-bottom: 30px;
+            }
+
+            .brand-icon {
+                flex-shrink: 0;
+            }
+
+            .compose-btn {
+                font-size: 0;
+                padding: 13px 5px;
+            }
+
+            .compose-btn i {
+                font-size: 19px;
+            }
+
+            .nav-heading,
+            .side-link span {
+                display: none;
+            }
+
+            .side-link {
+                justify-content: center;
+                padding: 13px 5px;
+                font-size: 19px;
+            }
+
+            .main-content {
+                padding: 22px 15px;
+            }
+
+            .panel-header,
+            .email-item {
+                padding: 17px;
+            }
+
+            .email-top {
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .email-date {
+                align-self: flex-end;
+            }
+        }
+.folder-link {
+    height: 37px;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 0 13px;
+    margin-bottom: 2px;
+    border-radius: 10px;
+    color: #52647d;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.folder-link:hover {
+    background: #f6f4ff;
+    color: #7665d9;
+}
+
+.folder-link.active {
+    background: #efedff;
+    color: #7665d9;
+    font-weight: 650;
+}
+        @media (max-width: 420px) {
+            .sidebar {
+                width: 60px;
+            }
+
+            .main-content {
+                padding: 18px 10px;
+            }
+
+            .page-title {
+                font-size: 22px;
+            }
+        }
+    </style>
 </head>
-<body class="bg-light">
 
-<div class="container py-5">
-    <h2 class="mb-4">Sent Emails</h2>
+<body>
 
-    <div class="list-group shadow-sm">
-        {% for email in emails %}
-            <a href="{{ url_for('email.view_sent_email', email_id=email.id) }}"
-               class="list-group-item list-group-item-action">
+<div class="app-layout">
 
-                <div class="d-flex justify-content-between">
-                    <strong>{{ email.subject or '(No subject)' }}</strong>
-                    <small class="text-muted">{{ email.created_at.strftime('%d %b %Y, %I:%M %p') }}</small>
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-icon">
+                <i class="bi bi-chat-square-heart-fill"></i>
+            </div>
+            ConnectHub
+        </div>
+
+        <a href="{{ url_for('email.compose') }}" class="compose-btn">
+            <i class="bi bi-pencil-square"></i>
+            Compose Email
+        </a>
+
+        <div class="nav-heading">Email</div>
+
+        <a href="{{ url_for('email.inbox') }}" class="side-link">
+            <i class="bi bi-inbox-fill"></i>
+            <span>Inbox</span>
+        </a>
+
+        <a href="{{ url_for('dashboard') }}" class="side-link">
+            <i class="bi bi-grid-fill"></i>
+            <span>Dashboard</span>
+        </a>
+
+    </aside>
+
+    <main class="main-content">
+
+        <div class="topbar">
+            <div>
+                <h2 class="page-title">Sent Emails</h2>
+                <p class="page-subtitle">Messages you've successfully sent.</p>
+            </div>
+
+            <div class="profile-icon">
+                <i class="bi bi-person-fill"></i>
+            </div>
+        </div>
+
+        <section class="email-panel">
+
+            <div class="panel-header">
+                <h5>
+                    <i class="bi bi-send-fill me-2" style="color: #7567d8;"></i>
+                    Sent Messages
+                </h5>
+
+                <span class="email-count">
+                    {{ emails|length }} messages
+                </span>
+            </div>
+
+            {% for email in emails %}
+
+                <a href="{{ url_for('email.view_sent_email', email_id=email.id) }}"
+                   class="email-item">
+
+                    <div class="email-top">
+
+                        <div class="flex-grow-1">
+
+                            <div class="email-subject">
+                                {{ email.subject or '(No subject)' }}
+                            </div>
+
+                            <div class="recipient">
+                                <i class="bi bi-person-circle me-1"></i>
+                                To: {{ email.recipient.email }}
+                            </div>
+
+                        </div>
+
+                        <small class="email-date">
+                            {{ email.created_at.strftime('%d %b %Y, %I:%M %p') if email.created_at else '' }}
+                        </small>
+
+                    </div>
+
+                    <p class="email-preview">
+                        {{ email.body[:140] if email.body else '(No message content)' }}
+                    </p>
+
+                </a>
+
+            {% else %}
+
+                <div class="empty-state">
+
+                    <div class="empty-icon">
+                        <i class="bi bi-send"></i>
+                    </div>
+
+                    <h5>No sent emails yet</h5>
+
+                    <p>Emails you send will appear here.</p>
+
+                    <a href="{{ url_for('email.compose') }}"
+                       class="compose-btn mx-auto"
+                       style="width: fit-content; padding: 11px 20px;">
+                        <i class="bi bi-pencil-square"></i>
+                        Compose your first email
+                    </a>
+
                 </div>
 
-                <small class="text-muted">To: {{ email.recipient.email }}</small>
+            {% endfor %}
 
-                <p class="mb-0 mt-1 text-secondary">
-                    {{ email.body[:100] }}
-                </p>
-            </a>
-        {% else %}
-            <div class="list-group-item text-center text-muted py-5">
-                No sent emails yet.
-            </div>
-        {% endfor %}
-    </div>
+        </section>
 
-    <a href="{{ url_for('email.compose') }}" class="btn btn-primary mt-4">Compose Email</a>
-    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary mt-4">Dashboard</a>
+        <a href="{{ url_for('dashboard') }}" class="back-link">
+            <i class="bi bi-arrow-left"></i>
+            Back to Dashboard
+        </a>
+
+    </main>
+
 </div>
+
+<aside class="folder-sidebar">
+
+    <a href="{{ url_for('email.compose') }}" class="compose-btn">
+        <i class="bi bi-pencil-square"></i>
+        Compose
+    </a>
+
+    <a href="{{ url_for('email.inbox') }}"
+       class="folder-link {% if request.endpoint == 'email.inbox' %}active{% endif %}">
+        <i class="bi bi-inbox"></i>
+        Inbox
+    </a>
+
+    <a href="{{ url_for('email.starred') }}"
+       class="folder-link {% if request.endpoint == 'email.starred' %}active{% endif %}">
+        <i class="bi bi-star"></i>
+        Starred
+    </a>
+
+    <a href="{{ url_for('email.sent') }}"
+       class="folder-link {% if request.endpoint in ['email.sent', 'email.view_sent_email'] %}active{% endif %}">
+        <i class="bi bi-send"></i>
+        Sent
+    </a>
+
+    <a href="{{ url_for('email.drafts') }}"
+       class="folder-link {% if request.endpoint == 'email.drafts' %}active{% endif %}">
+        <i class="bi bi-file-earmark"></i>
+        Drafts
+    </a>
+
+    <a href="{{ url_for('email.trash') }}"
+       class="folder-link {% if request.endpoint == 'email.trash' %}active{% endif %}">
+        <i class="bi bi-trash3"></i>
+        Trash
+    </a>
+
+    <a href="{{ url_for('email.important') }}"
+       class="folder-link {% if request.endpoint == 'email.important' %}active{% endif %}">
+        <i class="bi bi-bookmark"></i>
+        Important
+    </a>
+
+    <div class="folder-divider"></div>
+
+    <div class="folder-heading">APPLICATION</div>
+
+    <a href="{{ url_for('dashboard') }}" class="folder-link">
+        <i class="bi bi-grid"></i>
+        Dashboard
+    </a>
+
+</aside>
 
 </body>
 </html>

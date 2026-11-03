@@ -2,6 +2,7 @@
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from sqlalchemy import or_
+
 from extensions import db
 from email_module import email_bp
 from email_module.models import Email
@@ -9,6 +10,7 @@ from email_module.services import send_email, save_draft
 
 
 def user_email_query():
+    """Return emails sent or received by the logged-in user."""
     return Email.query.filter(
         or_(
             Email.sender_id == current_user.id,
@@ -36,7 +38,12 @@ def inbox():
         )
 
     emails = query.order_by(Email.created_at.desc()).all()
-    return render_template("email/inbox.html", emails=emails, search=search)
+
+    return render_template(
+        "email/inbox.html",
+        emails=emails,
+        search=search
+    )
 
 
 @email_bp.route("/sent")
@@ -87,6 +94,7 @@ def compose():
             send_email(current_user, recipient, subject, body)
             flash("Email sent successfully!", "success")
             return redirect(url_for("email.sent"))
+
         except ValueError as error:
             flash(str(error), "danger")
 
@@ -156,16 +164,14 @@ def restore_email(email_id):
         folder="trash"
     ).first_or_404()
 
-    if email.sender_id == current_user.id and email.recipient_id == current_user.id:
-        email.folder = "drafts"
-    elif email.sender_id == current_user.id:
+    if email.sender_id == current_user.id:
         email.folder = "sent"
     else:
         email.folder = "inbox"
 
     db.session.commit()
-    flash("Email restored successfully.", "success")
 
+    flash("Email restored successfully.", "success")
     return redirect(url_for("email.trash"))
 
 
@@ -184,29 +190,53 @@ def permanent_delete_email(email_id):
     return redirect(url_for("email.trash"))
 
 
+# STAR / UNSTAR EMAIL
+
 @email_bp.route("/star/<int:email_id>", methods=["POST"])
 @login_required
 def toggle_star(email_id):
-    email = user_email_query().filter_by(id=email_id).first_or_404()
+    email = user_email_query().filter_by(
+        id=email_id
+    ).first_or_404()
 
-    email.is_starred = not email.is_starred
-    db.session.commit()
+    if email.folder == "trash":
+        flash("Emails in Trash cannot be starred.", "warning")
+    else:
+        email.is_starred = not email.is_starred
+        db.session.commit()
 
-    flash("Star status updated.", "success")
+        if email.is_starred:
+            flash("Email added to Starred.", "success")
+        else:
+            flash("Email removed from Starred.", "success")
+
     return redirect(request.referrer or url_for("email.inbox"))
 
+
+# MARK / UNMARK IMPORTANT
 
 @email_bp.route("/important/<int:email_id>", methods=["POST"])
 @login_required
 def toggle_important(email_id):
-    email = user_email_query().filter_by(id=email_id).first_or_404()
+    email = user_email_query().filter_by(
+        id=email_id
+    ).first_or_404()
 
-    email.is_important = not email.is_important
-    db.session.commit()
+    if email.folder == "trash":
+        flash("Emails in Trash cannot be marked important.", "warning")
+    else:
+        email.is_important = not email.is_important
+        db.session.commit()
 
-    flash("Important status updated.", "success")
+        if email.is_important:
+            flash("Email marked as Important.", "success")
+        else:
+            flash("Email removed from Important.", "success")
+
     return redirect(request.referrer or url_for("email.inbox"))
 
+
+# STARRED EMAILS PAGE
 
 @email_bp.route("/starred")
 @login_required
@@ -217,8 +247,13 @@ def starred():
         Email.folder != "trash"
     ).order_by(Email.created_at.desc()).all()
 
-    return render_template("email/starred.html", emails=emails)
+    return render_template(
+        "email/starred.html",
+        emails=emails
+    )
 
+
+# IMPORTANT EMAILS PAGE
 
 @email_bp.route("/important")
 @login_required
@@ -229,4 +264,7 @@ def important():
         Email.folder != "trash"
     ).order_by(Email.created_at.desc()).all()
 
-    return render_template("email/important.html", emails=emails)
+    return render_template(
+        "email/important.html",
+        emails=emails
+    )

@@ -6,167 +6,610 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ chat_title }} - ConnectHub</title>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
     <style>
+        :root {
+            --primary: #7565d9;
+            --primary-dark: #6252c4;
+            --primary-light: #f0edff;
+            --background: #f8f9fd;
+            --text: #292b45;
+            --muted: #9295aa;
+            --border: #eeedf5;
+        }
+
+        * { box-sizing: border-box; }
+
         body {
-            background: #f1f5f9;
+            margin: 0;
+            min-height: 100vh;
+            background: var(--background);
+            color: var(--text);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .chat-container {
+            max-width: 1100px;
+            height: 92vh;
+            min-height: 550px;
+            margin: 4vh auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: white;
+            box-shadow: 0 8px 35px rgba(50, 40, 100, 0.07);
+        }
+
+        .chat-header {
+            min-height: 78px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 23px;
+            border-bottom: 1px solid var(--border);
+            background: white;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .back-button {
+            width: 37px;
+            height: 37px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: #f6f5fb;
+            color: #65677e;
+            text-decoration: none;
+        }
+
+        .back-button:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .chat-avatar {
+            width: 43px;
+            height: 43px;
+            display: grid;
+            place-items: center;
+            border-radius: 14px;
+            background: var(--primary-light);
+            color: var(--primary);
+            font-size: 19px;
+        }
+
+        .chat-heading h5 {
+            margin: 0 0 5px;
+            color: var(--text);
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .connection {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #e7a13a;
+        }
+
+        .connection.connected .connection-dot {
+            background: #32bd91;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-action {
+            width: 36px;
+            height: 36px;
+            display: grid;
+            place-items: center;
+            border: 0;
+            border-radius: 10px;
+            background: #f7f6fc;
+            color: #777990;
+            text-decoration: none;
+        }
+
+        .header-action:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .chat-content {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 25px;
+            background: #faf9ff;
+        }
+
+        .date-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+            color: #a1a1b4;
+            font-size: 11px;
+            text-align: center;
+        }
+
+        .date-divider::before,
+        .date-divider::after {
+            content: "";
+            height: 1px;
+            flex: 1;
+            background: #eceaf4;
         }
 
         #messages {
-            height: 400px;
+            flex: 1;
+            min-height: 0;
             overflow-y: auto;
-            background: white;
-            padding: 15px;
+            padding: 5px 5px 15px;
+        }
+
+        #messages::-webkit-scrollbar { width: 5px; }
+
+        #messages::-webkit-scrollbar-thumb {
             border-radius: 10px;
+            background: #dcd9ed;
         }
 
         .message {
-            padding: 10px 14px;
-            margin: 8px 0;
-            border-radius: 12px;
-            max-width: 75%;
+            width: fit-content;
+            max-width: 72%;
+            margin: 12px 0;
+            padding: 12px 15px;
+            border-radius: 15px;
             overflow-wrap: anywhere;
+            line-height: 1.5;
         }
 
         .mine {
-            background: #dbeafe;
             margin-left: auto;
+            border-bottom-right-radius: 4px;
+            background: #7565d9;
+            color: white;
         }
 
         .theirs {
-            background: #e5e7eb;
             margin-right: auto;
+            border: 1px solid #eeedf5;
+            border-bottom-left-radius: 4px;
+            background: white;
+            color: #34344e;
         }
 
-        .message small {
+        .message strong {
             display: block;
-            color: #64748b;
+            margin-bottom: 5px;
+            font-size: 12px;
         }
+
+        .message-content { white-space: pre-wrap; }
+
+        .message-time {
+            display: block;
+            margin-top: 7px;
+            color: #ded9ff;
+            font-size: 10px;
+            text-align: right;
+        }
+
+        .theirs .message-time { color: #a0a0b2; }
 
         .message-status {
             display: inline-block;
             margin-left: 6px;
-            font-size: 13px;
-            font-weight: bold;
+            font-size: 10px;
+            font-weight: 600;
         }
 
-        .message-status.sent {
-            color: #64748b;
-        }
-
+        .message-status.sent,
         .message-status.delivered {
-            color: #64748b;
+            color: #e0dcff;
         }
 
-        .message-status.read {
-            color: #0d6efd;
+        .message-status.read { color: #65d8ff; }
+
+        .message-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .message-actions button {
+            padding: 2px 5px;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            opacity: 0.8;
+            font-size: 11px;
+        }
+
+        .message-actions button:hover { opacity: 1; }
+
+        .message-attachment {
+            display: block;
+            max-width: 250px;
+            margin-top: 9px;
+            padding: 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.13);
+            color: inherit;
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .theirs .message-attachment {
+            background: #f5f3ff;
+            color: var(--primary-dark);
+        }
+
+        .message-image {
+            display: block;
+            max-width: 230px;
+            max-height: 230px;
+            margin-top: 8px;
+            border-radius: 10px;
+            object-fit: contain;
+            cursor: pointer;
+        }
+
+        .edited-label {
+            margin-left: 5px;
+            font-size: 10px;
+            opacity: 0.7;
+        }
+
+        .deleted-message {
+            font-style: italic;
+            opacity: 0.7;
+        }
+
+        #typing-status {
+            min-height: 18px;
+            margin: 5px 0 10px;
+            color: var(--primary);
+            font-size: 12px;
+        }
+
+        #error-message {
+            margin: 5px 0 0;
+            color: #dc3545;
+            font-size: 12px;
+        }
+
+        .input-area {
+            padding: 15px 22px 18px;
+            border-top: 1px solid var(--border);
+            background: white;
+        }
+
+        .attachment-form {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .attachment-form input {
+            min-width: 0;
+            flex: 1;
+            padding: 7px;
+            border: 1px solid #e8e5f3;
+            border-radius: 9px;
+            font-size: 12px;
+        }
+
+        .attachment-button {
+            padding: 9px 13px;
+            border: 0;
+            border-radius: 9px;
+            background: var(--primary-light);
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .attachment-button:hover {
+            background: #e6e1ff;
+        }
+
+        #message-form {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 7px;
+            border: 1px solid #e8e5f3;
+            border-radius: 13px;
+            background: #fafaff;
+        }
+
+        #message-input {
+            min-width: 0;
+            flex: 1;
+            padding: 10px 12px;
+            border: 0;
+            outline: none;
+            background: transparent;
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        #message-input::placeholder { color: #a3a2b5; }
+
+        .send-button {
+            min-width: 90px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 16px;
+            border: 0;
+            border-radius: 10px;
+            background: var(--primary);
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .send-button:hover { background: var(--primary-dark); }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .input-hint {
+            margin: 8px 5px 0;
+            color: #a1a1b4;
+            font-size: 10px;
+        }
+
+        @media (max-width: 700px) {
+            .chat-container {
+                width: 100%;
+                height: 100vh;
+                min-height: 0;
+                margin: 0;
+                border: 0;
+                border-radius: 0;
+            }
+
+            .chat-header { padding: 12px; }
+            .chat-content { padding: 15px 10px; }
+            .input-area { padding: 12px; }
+            .message { max-width: 88%; }
+            .header-right { display: flex; }
+
+            .send-button {
+                min-width: 45px;
+                padding: 11px;
+            }
+
+            .send-button span { display: none; }
         }
     </style>
 </head>
 
 <body>
 
-<div class="container py-4">
+<div class="chat-container">
 
-    <a href="{{ url_for('chat.index') }}"
-       class="btn btn-secondary mb-3">
-        Back to Chats
-    </a>
+    <header class="chat-header">
+        <div class="header-left">
 
-    <div class="card shadow-sm">
+            <a href="{{ url_for('chat.index') }}" class="back-button">
+                <i class="bi bi-arrow-left"></i>
+            </a>
 
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">{{ chat_title }}</h5>
-            <small id="connection-status">Connecting...</small>
-        </div>
-
-        <div class="card-body">
-
-            <div id="messages">
-
-                {% for message in messages %}
-
-                    <div class="message {% if message.sender_id == current_user.id %}mine{% else %}theirs{% endif %}"
-                         {% if message.sender_id == current_user.id %}
-                         data-message-id="{{ message.id }}"
-                         {% endif %}>
-
-                        <strong>{{ message.sender.username }}</strong>
-
-                        <div>{{ message.content }}</div>
-
-                        <small>
-                            {{ message.created_at.strftime('%d-%m-%Y %I:%M %p') }}
-
-                            {% if message.sender_id == current_user.id %}
-
-                                {% set receipt_status = namespace(value='sent', total=message.receipts|length, delivered=0, read=0) %}
-
-                                {% for receipt in message.receipts %}
-                                    {% if receipt.delivered_at %}
-                                        {% set receipt_status.delivered = receipt_status.delivered + 1 %}
-                                    {% endif %}
-
-                                    {% if receipt.read_at %}
-                                        {% set receipt_status.read = receipt_status.read + 1 %}
-                                    {% endif %}
-                                {% endfor %}
-
-                                {% if receipt_status.total > 0 and receipt_status.read == receipt_status.total %}
-                                    {% set receipt_status.value = 'read' %}
-                                {% elif receipt_status.total > 0 and receipt_status.delivered == receipt_status.total %}
-                                    {% set receipt_status.value = 'delivered' %}
-                                {% endif %}
-
-                                <span class="message-status {{ receipt_status.value }}"
-                                      data-status="{{ receipt_status.value }}">
-                                    {% if receipt_status.value == 'read' %}
-                                        ✓✓ Read
-                                    {% elif receipt_status.value == 'delivered' %}
-                                        ✓✓ Delivered
-                                    {% else %}
-                                        ✓ Sent
-                                    {% endif %}
-                                </span>
-
-                            {% endif %}
-                        </small>
-
-                    </div>
-
-                {% endfor %}
-
+            <div class="chat-avatar">
+                <i class="bi bi-chat-dots-fill"></i>
             </div>
 
-            <p id="typing-status" class="text-muted mt-2"></p>
+            <div class="chat-heading">
+                <h5>{{ chat_title }}</h5>
 
-            <form id="message-form" class="d-flex gap-2 mt-3">
-
-                <input id="message-input"
-                       class="form-control"
-                       placeholder="Type your message..."
-                       maxlength="5000"
-                       autocomplete="off"
-                       required>
-
-                <button class="btn btn-primary" type="submit">
-                    Send
-                </button>
-
-            </form>
-
-            <p id="error-message" class="text-danger mt-2"></p>
+                <div class="connection" id="connection-status">
+                    <span class="connection-dot"></span>
+                    <span id="connection-text">Connecting...</span>
+                </div>
+            </div>
 
         </div>
-    </div>
+
+        <div class="header-right">
+            <a href="{{ url_for('chat.download_transcript', conversation_id=conversation.id) }}"
+               class="header-action"
+               title="Download conversation">
+                <i class="bi bi-download"></i>
+            </a>
+        </div>
+    </header>
+
+    <main class="chat-content">
+
+        <div class="date-divider">
+            <span>Conversation messages</span>
+        </div>
+
+        <div id="messages">
+
+            {% for message in messages %}
+
+                <div class="message {% if message.sender_id == current_user.id %}mine{% else %}theirs{% endif %}"
+                     data-message-id="{{ message.id }}">
+
+                    <strong>{{ message.sender.username }}</strong>
+
+                    <div class="message-content {% if message.is_deleted %}deleted-message{% endif %}">
+                        {{ message.content }}
+                    </div>
+
+                    {% if message.attachment_name and not message.is_deleted %}
+
+                        {% set attachment_url = url_for('chat.download_attachment', message_id=message.id) %}
+
+                        {% if message.attachment_mimetype and message.attachment_mimetype.startswith('image/') %}
+
+                            <a href="{{ attachment_url }}" target="_blank">
+                                <img src="{{ attachment_url }}?inline=1"
+                                     class="message-image"
+                                     alt="{{ message.attachment_name }}">
+                            </a>
+
+                        {% else %}
+
+                            <a href="{{ attachment_url }}" class="message-attachment">
+                                <i class="bi bi-file-earmark-arrow-down"></i>
+                                {{ message.attachment_name }}
+                                <i class="bi bi-download"></i>
+                            </a>
+
+                        {% endif %}
+
+                    {% endif %}
+
+                    {% if message.is_edited and not message.is_deleted %}
+                        <span class="edited-label">(edited)</span>
+                    {% endif %}
+
+                    <small class="message-time" data-utc="{{ message.created_at.isoformat() }}">
+                        <span class="formatted-time"></span>
+
+                        {% if message.sender_id == current_user.id %}
+
+                            {% set receipt_status = namespace(value='sent', total=message.receipts|length, delivered=0, read=0) %}
+
+                            {% for receipt in message.receipts %}
+                                {% if receipt.delivered_at %}
+                                    {% set receipt_status.delivered = receipt_status.delivered + 1 %}
+                                {% endif %}
+
+                                {% if receipt.read_at %}
+                                    {% set receipt_status.read = receipt_status.read + 1 %}
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if receipt_status.total > 0 and receipt_status.read == receipt_status.total %}
+                                {% set receipt_status.value = 'read' %}
+                            {% elif receipt_status.total > 0 and receipt_status.delivered == receipt_status.total %}
+                                {% set receipt_status.value = 'delivered' %}
+                            {% endif %}
+
+                            <span class="message-status {{ receipt_status.value }}"
+                                  data-status="{{ receipt_status.value }}">
+                                {% if receipt_status.value == 'read' %}
+                                    ✓✓ Read
+                                {% elif receipt_status.value == 'delivered' %}
+                                    ✓✓ Delivered
+                                {% else %}
+                                    ✓ Sent
+                                {% endif %}
+                            </span>
+
+                        {% endif %}
+                    </small>
+
+                    {% if message.sender_id == current_user.id and not message.is_deleted %}
+                        <div class="message-actions">
+                            {% if not message.attachment_name %}
+                                <button type="button"
+                                        onclick="editMessage({{ message.id }})">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+                            {% endif %}
+
+                            <button type="button"
+                                    onclick="deleteMessage({{ message.id }})">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </div>
+                    {% endif %}
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+        <p id="typing-status"></p>
+        <p id="error-message"></p>
+
+    </main>
+
+    <footer class="input-area">
+
+        <form class="attachment-form"
+              id="attachment-form"
+              method="POST"
+              action="{{ url_for('chat.upload_attachment', conversation_id=conversation.id) }}"
+              enctype="multipart/form-data">
+
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <input type="file"
+                   id="attachment-input"
+                   name="attachment"
+                   accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.csv"
+                   required>
+
+            <button type="submit" class="attachment-button">
+                <i class="bi bi-paperclip"></i> Upload
+            </button>
+
+        </form>
+
+        <form id="message-form">
+
+            <input id="message-input"
+                   placeholder="Write a message..."
+                   maxlength="5000"
+                   autocomplete="off"
+                   required>
+
+            <button class="send-button" id="send-button" type="submit">
+                <i class="bi bi-send-fill"></i>
+                <span>Send</span>
+            </button>
+
+        </form>
+
+        <p class="input-hint">
+            Share messages, images and documents. Maximum attachment size: 15 MB.
+        </p>
+
+    </footer>
+
 </div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
 <script>
-
     const conversationId = {{ conversation.id|tojson }};
     const myUserId = {{ current_user.id|tojson }};
 
@@ -175,38 +618,163 @@
     const messages = document.getElementById("messages");
     const input = document.getElementById("message-input");
     const form = document.getElementById("message-form");
+    const sendButton = document.getElementById("send-button");
     const status = document.getElementById("connection-status");
+    const connectionText = document.getElementById("connection-text");
     const typingStatus = document.getElementById("typing-status");
     const errorMessage = document.getElementById("error-message");
+
+    const attachmentForm = document.getElementById("attachment-form");
+    const attachmentInput = document.getElementById("attachment-input");
+
+    const attachmentUrlBase = {{ url_for('chat.download_attachment', message_id=0)|tojson }};
+
+    let joinedConversation = false;
+    let typingTimer = null;
+
+    function getAttachmentUrl(messageId) {
+        return attachmentUrlBase.replace(/0\/?$/, String(messageId));
+    }
+
+    // Convert UTC timestamps to Indian Standard Time.
+    function formatIST(timestamp) {
+        if (!timestamp) return "";
+
+        let value = String(timestamp).trim();
+
+        // Treat timezone-naive SQLite timestamps as UTC.
+        if (!/[zZ]|[+-]\d{2}:\d{2}$/.test(value)) {
+            value += "Z";
+        }
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return "Time unavailable";
+        }
+
+        return new Intl.DateTimeFormat("en-IN", {
+            timeZone: "Asia/Kolkata",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+        }).format(date);
+    }
+
+    // Format timestamps already loaded from the database.
+    document.querySelectorAll(".message-time[data-utc]").forEach(element => {
+        const formatted = element.querySelector(".formatted-time");
+
+        if (formatted) {
+            formatted.textContent = formatIST(element.dataset.utc);
+        }
+    });
 
     function scrollToBottom() {
         messages.scrollTop = messages.scrollHeight;
     }
 
-    // Add a new message
+    function createMessageActions(wrapper, messageId, isMine, isDeleted, hasAttachment) {
+        if (!isMine || isDeleted) return;
+
+        const actions = document.createElement("div");
+        actions.className = "message-actions";
+
+        if (!hasAttachment) {
+            const editButton = document.createElement("button");
+            editButton.type = "button";
+            editButton.innerHTML = '<i class="bi bi-pencil"></i> Edit';
+            editButton.addEventListener("click", () => editMessage(messageId));
+            actions.appendChild(editButton);
+        }
+
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.innerHTML = '<i class="bi bi-trash"></i> Delete';
+        deleteButton.addEventListener("click", () => deleteMessage(messageId));
+
+        actions.appendChild(deleteButton);
+        wrapper.appendChild(actions);
+    }
+
     function addMessage(message) {
+        // Avoid adding the same message twice.
+        if (messages.querySelector(
+            '[data-message-id="' + message.id + '"]'
+        )) {
+            return;
+        }
 
         const wrapper = document.createElement("div");
 
-        const isMine = Number(message.sender_id) === Number(myUserId);
+        const isMine =
+            Number(message.sender_id) === Number(myUserId);
 
         wrapper.className = "message " + (isMine ? "mine" : "theirs");
-
-        if (isMine) {
-            wrapper.dataset.messageId = message.id;
-        }
+        wrapper.dataset.messageId = message.id;
 
         const sender = document.createElement("strong");
-        sender.textContent = message.sender_name;
+        sender.textContent = message.sender_name || "User";
 
         const content = document.createElement("div");
-        content.textContent = message.content;
+        content.className = "message-content";
+        content.textContent = message.content || "";
+
+        wrapper.appendChild(sender);
+        wrapper.appendChild(content);
+
+        const attachmentName = message.attachment_name;
+        const attachmentMimetype = message.attachment_mimetype || "";
+
+        if (attachmentName && !message.is_deleted) {
+            const attachmentUrl = getAttachmentUrl(message.id);
+
+            if (attachmentMimetype.startsWith("image/")) {
+                const link = document.createElement("a");
+                link.href = attachmentUrl;
+                link.target = "_blank";
+
+                const image = document.createElement("img");
+                image.src = attachmentUrl + "?inline=1";
+                image.alt = attachmentName;
+                image.className = "message-image";
+
+                link.appendChild(image);
+                wrapper.appendChild(link);
+            } else {
+                const link = document.createElement("a");
+                link.href = attachmentUrl;
+                link.className = "message-attachment";
+                link.textContent = "📎 " + attachmentName + "  Download";
+
+                wrapper.appendChild(link);
+            }
+        }
+
+        if (message.is_edited && !message.is_deleted) {
+            const edited = document.createElement("span");
+            edited.className = "edited-label";
+            edited.textContent = "(edited)";
+            wrapper.appendChild(edited);
+        }
+
+        if (message.is_deleted) {
+            content.classList.add("deleted-message");
+        }
 
         const time = document.createElement("small");
-        time.textContent = new Date(message.created_at).toLocaleString();
+        time.className = "message-time";
+
+        const formattedTime = document.createElement("span");
+        formattedTime.className = "formatted-time";
+        formattedTime.textContent = formatIST(message.created_at);
+
+        time.appendChild(formattedTime);
 
         if (isMine) {
-
             const receipt = document.createElement("span");
 
             receipt.className = "message-status sent";
@@ -216,16 +784,21 @@
             time.appendChild(receipt);
         }
 
-        wrapper.append(sender, content, time);
+        wrapper.appendChild(time);
+
+        createMessageActions(
+            wrapper,
+            message.id,
+            isMine,
+            Boolean(message.is_deleted),
+            Boolean(attachmentName)
+        );
 
         messages.appendChild(wrapper);
-
         scrollToBottom();
     }
 
-    // Update message receipt
     function updateReceipt(data) {
-
         const messageElement = messages.querySelector(
             '[data-message-id="' + data.message_id + '"]'
         );
@@ -235,6 +808,13 @@
         const receipt = messageElement.querySelector(".message-status");
 
         if (!receipt) return;
+
+        const currentStatus = receipt.dataset.status;
+
+        // Do not downgrade a read receipt to delivered.
+        if (currentStatus === "read" && data.status !== "read") {
+            return;
+        }
 
         receipt.dataset.status = data.status;
         receipt.className = "message-status " + data.status;
@@ -246,97 +826,261 @@
         }
     }
 
-    // Connect to server
-    socket.on("connect", () => {
+    // Edit an existing message.
+    function editMessage(messageId) {
+        const messageElement = messages.querySelector(
+            '[data-message-id="' + messageId + '"]'
+        );
 
-        status.textContent = "Connected";
+        if (!messageElement) return;
 
-        socket.emit("join_conversation", {
-            conversation_id: conversationId
+        const contentElement = messageElement.querySelector(".message-content");
+
+        if (!contentElement || contentElement.classList.contains("deleted-message")) {
+            return;
+        }
+
+        const currentContent = contentElement.textContent.trim();
+
+        const newContent = prompt("Edit your message:", currentContent);
+
+        if (newContent === null) return;
+
+        const updatedContent = newContent.trim();
+
+        if (!updatedContent) {
+            alert("Message cannot be empty.");
+            return;
+        }
+
+        if (updatedContent.length > 5000) {
+            alert("Message cannot exceed 5000 characters.");
+            return;
+        }
+
+        if (!socket.connected) {
+            alert("Chat is disconnected. Please try again.");
+            return;
+        }
+
+        socket.emit("edit_message", {
+            message_id: messageId,
+            content: updatedContent
         });
+    }
 
-        // Mark received messages as read
+    // Delete an existing message.
+    function deleteMessage(messageId) {
+        const confirmed = confirm(
+            "Are you sure you want to delete this message?"
+        );
+
+        if (!confirmed) return;
+
+        if (!socket.connected) {
+            alert("Chat is disconnected. Please try again.");
+            return;
+        }
+
+        socket.emit("delete_message", {
+            message_id: messageId
+        });
+    }
+
+    // Connect to Socket.IO.
+    socket.on("connect", () => {
+        status.classList.add("connected");
+        connectionText.textContent = "Connected";
+
+        joinedConversation = false;
+
+        socket.emit(
+            "join_conversation",
+            { conversation_id: conversationId }
+        );
+    });
+
+    socket.on("conversation_joined", data => {
+        if (Number(data.conversation_id) !== Number(conversationId)) {
+            return;
+        }
+
+        joinedConversation = true;
+
         socket.emit("mark_messages_read", {
             conversation_id: conversationId
         });
-
     });
 
     socket.on("disconnect", () => {
-        status.textContent = "Disconnected. Reconnecting...";
+        joinedConversation = false;
+
+        status.classList.remove("connected");
+        connectionText.textContent = "Disconnected. Reconnecting...";
     });
 
-    // Receive new messages
-    socket.on("new_message", (message) => {
+    socket.on("connect_error", error => {
+        status.classList.remove("connected");
+        connectionText.textContent = "Connection failed";
 
+        errorMessage.textContent =
+            "Unable to connect to chat. Please refresh the page.";
+
+        console.error("Socket connection error:", error);
+    });
+
+    // Receive new messages.
+    socket.on("new_message", message => {
         if (Number(message.conversation_id) !== Number(conversationId)) {
             return;
         }
 
         addMessage(message);
 
-        // Automatically mark incoming messages as read
-        if (Number(message.sender_id) !== Number(myUserId)) {
-
+        if (
+            Number(message.sender_id) !== Number(myUserId) &&
+            joinedConversation
+        ) {
             socket.emit("mark_messages_read", {
                 conversation_id: conversationId
             });
-
         }
-
     });
 
-    // Receive delivery/read receipt updates
-    socket.on("receipt_update", (data) => {
+    // Update sent/delivered/read ticks.
+    socket.on("receipt_update", data => {
         updateReceipt(data);
     });
 
-    // Display errors
-    socket.on("message_error", (data) => {
-        errorMessage.textContent = data.error;
+    // Receive edited message updates.
+    socket.on("message_updated", data => {
+        const messageElement = messages.querySelector(
+            '[data-message-id="' + data.message_id + '"]'
+        );
+
+        if (!messageElement) return;
+
+        const contentElement = messageElement.querySelector(".message-content");
+
+        if (contentElement) {
+            contentElement.textContent = data.content;
+        }
+
+        let editedLabel = messageElement.querySelector(".edited-label");
+
+        if (!editedLabel) {
+            editedLabel = document.createElement("span");
+            editedLabel.className = "edited-label";
+            contentElement.after(editedLabel);
+        }
+
+        editedLabel.textContent = "(edited)";
     });
 
-    // Typing indicator
-    socket.on("user_typing", (data) => {
+    // Receive deleted message updates.
+    socket.on("message_deleted", data => {
+        const messageElement = messages.querySelector(
+            '[data-message-id="' + data.message_id + '"]'
+        );
 
+        if (!messageElement) return;
+
+        const contentElement = messageElement.querySelector(".message-content");
+
+        if (contentElement) {
+            contentElement.textContent = "This message was deleted.";
+            contentElement.classList.add("deleted-message");
+        }
+
+        // Remove any attachment preview and action buttons.
+        messageElement.querySelectorAll(
+            ".message-attachment, .message-image, .message-actions, .edited-label"
+        ).forEach(element => element.remove());
+    });
+
+    socket.on("message_error", data => {
+        errorMessage.textContent =
+            data.error || "Message could not be sent.";
+    });
+
+    // Typing indicator.
+    socket.on("user_typing", data => {
         typingStatus.textContent = data.username + " is typing...";
 
-        setTimeout(() => {
+        clearTimeout(typingTimer);
+
+        typingTimer = setTimeout(() => {
             typingStatus.textContent = "";
         }, 2000);
-
     });
 
-    // Send message
-    form.addEventListener("submit", (event) => {
-
+    // Send a normal text message.
+    form.addEventListener("submit", event => {
         event.preventDefault();
 
         const content = input.value.trim();
 
         if (!content) return;
 
-        errorMessage.textContent = "";
+        if (!socket.connected || !joinedConversation) {
+            errorMessage.textContent =
+                "Chat is connecting. Please wait a moment and try again.";
+            return;
+        }
 
-        socket.emit("send_message", {
-            conversation_id: conversationId,
-            content: content
-        });
+        errorMessage.textContent = "";
+        sendButton.disabled = true;
+
+        socket.emit(
+            "send_message",
+            {
+                conversation_id: conversationId,
+                content: content
+            },
+            () => {
+                sendButton.disabled = false;
+            }
+        );
 
         input.value = "";
+        input.focus();
+
+        // Re-enable if the server does not acknowledge.
+        setTimeout(() => {
+            sendButton.disabled = false;
+        }, 1500);
     });
 
-    // Typing event
+    // Typing event.
     input.addEventListener("input", () => {
+        if (!socket.connected || !joinedConversation) return;
 
         socket.emit("typing", {
             conversation_id: conversationId
         });
+    });
 
+    // Validate attachment size before upload.
+    attachmentForm.addEventListener("submit", event => {
+        const file = attachmentInput.files[0];
+
+        if (!file) {
+            event.preventDefault();
+            alert("Please select a file.");
+            return;
+        }
+
+        const maxSize = 15 * 1024 * 1024;
+
+        if (file.size > maxSize) {
+            event.preventDefault();
+            alert("File size must not exceed 15 MB.");
+            attachmentInput.value = "";
+            return;
+        }
     });
 
     scrollToBottom();
-
 </script>
 
 </body>

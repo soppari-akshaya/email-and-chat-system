@@ -4,269 +4,546 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ConnectHub Chat</title>
+    <title>ConnectHub | Chat</title>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
 
     <style>
-        body {
-            background: #f1f5f9;
-            font-family: Arial, sans-serif;
+        .conversation-item {
+            position: relative;
         }
 
-        .status-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 7px;
-            background: #9ca3af;
+        .conversation-info {
+            min-width: 0;
+            flex: 1;
         }
 
-        .status-dot.online {
-            background: #16a34a;
+        .conversation-info strong,
+        .conversation-info small {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
-        .status-dot.offline {
-            background: #9ca3af;
+        .conversation-info small {
+            color: #85839a;
         }
 
-        .status-text {
-            font-size: 13px;
-            color: #6b7280;
+        .conversation-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 6px;
+            margin-left: 8px;
         }
 
-        .user-info {
+        .conversation-time {
+            color: #85839a;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .unread-badge {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            flex-wrap: wrap;
+            justify-content: center;
+            min-width: 21px;
+            height: 21px;
+            padding: 0 6px;
+            border-radius: 20px;
+            background: #6555c7;
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .unread-badge[hidden] {
+            display: none !important;
+        }
+
+        .conversation-item.has-unread .conversation-info small {
+            color: #5145a5;
+            font-weight: 600;
         }
     </style>
 </head>
 
 <body>
 
-<div class="container py-5">
+<div class="chat-app">
 
-    <h2>ConnectHub Chat</h2>
+    <!-- Top Header -->
+    <header class="top-header">
+        <div class="brand-area">
+            <a href="{{ url_for('dashboard') }}" class="back-button">
+                <i class="bi bi-arrow-left"></i>
+                <span>Dashboard</span>
+            </a>
 
-    <a href="{{ url_for('dashboard') }}"
-       class="btn btn-secondary mb-3">
-        Dashboard
-    </a>
+            <div class="brand-divider"></div>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">
-                {{ message }}
+            <div class="brand-name">
+                <div class="brand-logo">
+                    <i class="bi bi-chat-dots-fill"></i>
+                </div>
+                <span>ConnectHub</span>
+                <small>CHAT</small>
             </div>
-        {% endfor %}
-    {% endwith %}
-
-    <!-- Private Chat -->
-    <div class="card mb-4">
-
-        <div class="card-header">
-            Start Private Chat
         </div>
 
-        <div class="list-group list-group-flush">
+        <div class="header-search">
+            <i class="bi bi-search"></i>
+            <input type="text" id="globalChatSearch"
+                   placeholder="Search chats and people...">
+        </div>
 
-            {% for user in users %}
+        <div class="header-actions">
+            <span class="active-status">
+                <span class="active-dot"></span>
+                Active
+            </span>
 
-                <a class="list-group-item list-group-item-action"
-                   href="{{ url_for('chat.private_chat', user_id=user.id) }}">
+            <div class="profile-circle">
+                {{ current_user.username[:1]|upper }}
+            </div>
 
-                    <strong>{{ user.username }}</strong>
+            <div class="profile-details">
+                <strong>{{ current_user.username }}</strong>
+                <small>ConnectHub member</small>
+            </div>
+        </div>
+    </header>
 
-                    <span class="user-info ms-2">
-                        <span class="status-dot offline"
-                              id="status-dot-{{ user.id }}"></span>
+    <!-- Main Layout -->
+    <main class="chat-layout">
 
-                        <span class="status-text"
-                              id="status-text-{{ user.id }}">
-                            Offline
-                        </span>
-                    </span>
+        <!-- Navigation Rail -->
+        <aside class="navigation-rail">
 
-                    <br>
+            <a href="{{ url_for('dashboard') }}" class="rail-link">
+                <i class="bi bi-grid"></i>
+                <span>Home</span>
+            </a>
 
-                    <small class="text-muted">
-                        {{ user.email }}
-                    </small>
+            <a href="{{ url_for('chat.index') }}" class="rail-link active">
+                <i class="bi bi-chat-left-text"></i>
+                <span>Chat</span>
+            </a>
 
-                    <small class="text-muted d-block"
-                           id="last-seen-{{ user.id }}">
-                        {% if user.last_seen %}
-                            Last seen: {{ user.last_seen.strftime('%d %b %Y, %I:%M %p') }}
-                        {% else %}
-                            Last seen: Unknown
-                        {% endif %}
-                    </small>
-
+            <div class="rail-bottom">
+                <a href="{{ url_for('dashboard') }}" class="rail-link">
+                    <i class="bi bi-house"></i>
+                    <span>Main</span>
                 </a>
+            </div>
 
-            {% else %}
+        </aside>
 
-                <div class="list-group-item">
-                    No other users registered.
+        <!-- Chat Sidebar -->
+        <aside class="chat-sidebar">
+
+            <div class="sidebar-top">
+                <h2>Messages</h2>
+
+                <details class="new-chat-menu">
+                    <summary>
+                        <i class="bi bi-plus-lg"></i>
+                        New chat
+                    </summary>
+
+                    <div class="new-chat-options">
+                        <p>Start a conversation</p>
+
+                        <a href="#people-section">
+                            <i class="bi bi-person"></i>
+                            Private chat
+                        </a>
+
+                        <a href="#group-create">
+                            <i class="bi bi-people"></i>
+                            Create group
+                        </a>
+                    </div>
+                </details>
+            </div>
+
+            <div class="sidebar-search">
+                <i class="bi bi-search"></i>
+                <input type="text" id="sidebarChatSearch"
+                       placeholder="Search people or conversations...">
+            </div>
+
+            <!-- Shortcuts -->
+            <div class="sidebar-section">
+
+                <div class="section-heading">
+                    <span>SHORTCUTS</span>
                 </div>
 
-            {% endfor %}
+                <a href="#conversation-section"
+                   class="shortcut-link selected">
+                    <i class="bi bi-house-door"></i>
+                    Home
+                </a>
 
-        </div>
-    </div>
+                <a href="#people-section" class="shortcut-link">
+                    <i class="bi bi-people"></i>
+                    All people
+                </a>
 
-    <!-- Create Group -->
-    <div class="card mb-4">
+                <a href="#group-section" class="shortcut-link">
+                    <i class="bi bi-collection"></i>
+                    Groups
+                </a>
 
-        <div class="card-header">
-            Create Group Chat
-        </div>
+            </div>
 
-        <div class="card-body">
+            <!-- Existing Conversations -->
+            <div class="sidebar-section conversation-section"
+                 id="conversation-section">
 
-            <form method="POST"
-                  action="{{ url_for('chat.create_group') }}">
+                <div class="section-heading">
+                    <span>YOUR CONVERSATIONS</span>
+                    <span class="section-count">
+                        {{ conversations|length }}
+                    </span>
+                </div>
 
-                <input type="hidden"
-                       name="csrf_token"
-                       value="{{ csrf_token() }}">
+                <div class="conversation-list" id="conversationList">
 
-                <label class="form-label">
-                    Group Name
-                </label>
+                    {% for conversation in conversations %}
 
-                <input type="text"
-                       name="group_name"
-                       class="form-control mb-3"
-                       maxlength="100"
-                       placeholder="Enter group name"
-                       required>
+                        {% set latest = namespace(message=None) %}
+                        {% set unread = namespace(count=0) %}
 
-                <label class="form-label">
-                    Select Members
-                </label>
+                        {% for msg in conversation.messages %}
 
-                {% for user in users %}
+                            {% set latest.message = msg %}
 
-                    <div class="form-check">
+                            {% for receipt in msg.receipts %}
+                                {% if receipt.recipient_id == current_user.id
+                                      and not receipt.read_at
+                                      and not msg.is_deleted %}
+                                    {% set unread.count = unread.count + 1 %}
+                                {% endif %}
+                            {% endfor %}
 
-                        <input class="form-check-input"
-                               type="checkbox"
-                               name="members"
-                               value="{{ user.id }}"
-                               id="member{{ user.id }}">
+                        {% endfor %}
 
-                        <label class="form-check-label"
-                               for="member{{ user.id }}">
-                            {{ user.username }}
-                        </label>
+                        {% if conversation.is_group %}
 
-                    </div>
+                            <a class="conversation-item searchable-item
+                                      {% if unread.count > 0 %}has-unread{% endif %}"
+                               id="conversation-{{ conversation.id }}"
+                               data-conversation-id="{{ conversation.id }}"
+                               data-search="{{ (conversation.name or 'Group Chat')|lower }}"
+                               href="{{ url_for('chat.group_chat', conversation_id=conversation.id) }}">
 
-                {% endfor %}
+                                <div class="conversation-avatar group-avatar">
+                                    <i class="bi bi-people-fill"></i>
+                                </div>
 
-                <button type="submit"
-                        class="btn btn-success mt-3">
-                    Create Group
-                </button>
+                                <div class="conversation-info">
+                                    <strong>
+                                        {{ conversation.name or "Group Chat" }}
+                                    </strong>
 
-            </form>
+                                    <small class="last-message">
+                                        {% if latest.message %}
+                                            {% if latest.message.is_deleted %}
+                                                This message was deleted.
+                                            {% elif latest.message.attachment_name %}
+                                                <i class="bi bi-paperclip"></i>
+                                                {{ latest.message.attachment_name }}
+                                            {% else %}
+                                                {{ latest.message.content or "New message" }}
+                                            {% endif %}
+                                        {% else %}
+                                            Group conversation
+                                        {% endif %}
+                                    </small>
+                                </div>
 
-        </div>
-    </div>
-
-    <!-- Existing Conversations -->
-    <div class="card">
-
-        <div class="card-header">
-            Your Conversations
-        </div>
-
-        <div class="list-group list-group-flush">
-
-            {% for conversation in conversations %}
-
-                {% if conversation.is_group %}
-
-                    <a class="list-group-item list-group-item-action"
-                       href="{{ url_for('chat.group_chat', conversation_id=conversation.id) }}">
-
-                        {{ conversation.name or "Group Chat" }}
-
-                        <span class="badge bg-primary">
-                            Group
-                        </span>
-
-                    </a>
-
-                {% else %}
-
-                    {% for member in conversation.members %}
-
-                        {% if member.user_id != current_user.id %}
-
-                            <a class="list-group-item list-group-item-action"
-                               href="{{ url_for('chat.private_chat', user_id=member.user_id) }}">
-
-                                Private chat with
-                                <strong>
-                                    {{ member.user.username if member.user else "User" }}
-                                </strong>
-
-                                <span class="user-info ms-2">
-                                    <span class="status-dot offline"
-                                          id="conversation-dot-{{ member.user_id }}"></span>
-
-                                    <span class="status-text"
-                                          id="conversation-status-{{ member.user_id }}">
-                                        Offline
+                                <div class="conversation-meta">
+                                    <span class="conversation-time">
+                                        {% if latest.message %}
+                                            {{ latest.message.created_at.strftime('%I:%M %p') }}
+                                        {% endif %}
                                     </span>
-                                </span>
+
+                                    <span class="unread-badge"
+                                          {% if unread.count == 0 %}hidden{% endif %}>
+                                        {{ unread.count }}
+                                    </span>
+
+                                    <span class="group-label">Group</span>
+                                </div>
 
                             </a>
 
+                        {% else %}
+
+                            {% for member in conversation.members %}
+
+                                {% if member.user_id != current_user.id %}
+
+                                    <a class="conversation-item searchable-item
+                                              {% if unread.count > 0 %}has-unread{% endif %}"
+                                       id="conversation-{{ conversation.id }}"
+                                       data-conversation-id="{{ conversation.id }}"
+                                       data-search="{{ (member.user.username if member.user else 'User')|lower }}"
+                                       href="{{ url_for('chat.private_chat', user_id=member.user_id) }}">
+
+                                        <div class="conversation-avatar">
+                                            {{ (member.user.username[:1] if member.user else 'U')|upper }}
+                                        </div>
+
+                                        <div class="conversation-info">
+                                            <strong>
+                                                {{ member.user.username if member.user else "User" }}
+                                            </strong>
+
+                                            <small class="last-message">
+                                                {% if latest.message %}
+                                                    {% if latest.message.is_deleted %}
+                                                        This message was deleted.
+                                                    {% elif latest.message.attachment_name %}
+                                                        <i class="bi bi-paperclip"></i>
+                                                        {{ latest.message.attachment_name }}
+                                                    {% else %}
+                                                        {{ latest.message.content or "New message" }}
+                                                    {% endif %}
+                                                {% else %}
+                                                    Private conversation
+                                                {% endif %}
+                                            </small>
+                                        </div>
+
+                                        <div class="conversation-meta">
+                                            <span class="conversation-time">
+                                                {% if latest.message %}
+                                                    {{ latest.message.created_at.strftime('%I:%M %p') }}
+                                                {% endif %}
+                                            </span>
+
+                                            <span class="unread-badge"
+                                                  {% if unread.count == 0 %}hidden{% endif %}>
+                                                {{ unread.count }}
+                                            </span>
+
+                                            <span class="status-dot offline"
+                                                  id="conversation-dot-{{ member.user_id }}">
+                                            </span>
+                                        </div>
+
+                                    </a>
+
+                                {% endif %}
+
+                            {% endfor %}
+
                         {% endif %}
+
+                    {% else %}
+
+                        <div class="empty-sidebar">
+                            <i class="bi bi-chat-square"></i>
+                            <p>No conversations yet.</p>
+                            <small>Start a new chat with someone.</small>
+                        </div>
 
                     {% endfor %}
 
-                {% endif %}
+                </div>
+            </div>
 
-            {% else %}
+            <!-- People -->
+            <div class="sidebar-section people-section"
+                 id="people-section">
 
-                <div class="list-group-item">
-                    No conversations yet.
+                <div class="section-heading">
+                    <span>PEOPLE</span>
+                    <span class="section-count">{{ users|length }}</span>
                 </div>
 
-            {% endfor %}
+                <div class="people-list" id="peopleList">
 
-        </div>
-    </div>
+                    {% for user in users %}
 
+                        <a class="person-item searchable-item"
+                           href="{{ url_for('chat.private_chat', user_id=user.id) }}"
+                           data-search="{{ user.username|lower }}">
+
+                            <div class="person-avatar">
+                                {{ user.username[:1]|upper }}
+                            </div>
+
+                            <div class="person-info">
+                                <strong>{{ user.username }}</strong>
+                                <small id="status-text-{{ user.id }}">
+                                    Offline
+                                </small>
+                            </div>
+
+                            <span class="status-dot offline"
+                                  id="status-dot-{{ user.id }}">
+                            </span>
+
+                        </a>
+
+                    {% else %}
+
+                        <p class="no-people">
+                            No other users registered.
+                        </p>
+
+                    {% endfor %}
+
+                </div>
+            </div>
+
+            <!-- Create Group -->
+            <div class="sidebar-section group-section"
+                 id="group-section">
+
+                <details class="group-create-details" id="group-create">
+
+                    <summary>
+                        <i class="bi bi-plus-circle"></i>
+                        Create a group
+                    </summary>
+
+                    <form method="POST"
+                          action="{{ url_for('chat.create_group') }}"
+                          class="group-form">
+
+                        <input type="hidden"
+                               name="csrf_token"
+                               value="{{ csrf_token() }}">
+
+                        <label for="groupName">Group name</label>
+
+                        <input type="text"
+                               id="groupName"
+                               name="group_name"
+                               maxlength="100"
+                               placeholder="Enter group name"
+                               required>
+
+                        <label>Select members</label>
+
+                        <div class="member-selection">
+
+                            {% for user in users %}
+
+                                <label class="member-option">
+                                    <input type="checkbox"
+                                           name="members"
+                                           value="{{ user.id }}">
+                                    <span>{{ user.username }}</span>
+                                </label>
+
+                            {% endfor %}
+
+                        </div>
+
+                        <button type="submit"
+                                class="create-group-button">
+                            Create group
+                        </button>
+
+                    </form>
+
+                </details>
+            </div>
+
+        </aside>
+
+        <!-- Main Conversation Area -->
+        <section class="conversation-area">
+
+            <div class="conversation-header">
+                <div>
+                    <h2>Chat</h2>
+                    <p>Your conversations in one place</p>
+                </div>
+
+                <div class="header-chat-icon">
+                    <i class="bi bi-chat-square-text"></i>
+                </div>
+            </div>
+
+            <div class="welcome-area">
+
+                <div class="welcome-illustration">
+                    <i class="bi bi-chat-dots"></i>
+                    <span class="illustration-circle"></span>
+                </div>
+
+                <h3>No conversation selected</h3>
+
+                <p>
+                    Choose a conversation from the list to start messaging,
+                    or start a new chat with someone.
+                </p>
+
+                <a href="#people-section" class="start-chat-button">
+                    <i class="bi bi-plus-lg"></i>
+                    Start a conversation
+                </a>
+
+            </div>
+
+        </section>
+
+    </main>
 </div>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+
+    {% for category, message in messages %}
+
+        <div class="flash-message alert alert-{{ category }}">
+            {{ message }}
+        </div>
+
+    {% endfor %}
+
+{% endwith %}
 
 <!-- Socket.IO -->
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
 <script>
+
     const socket = io();
+
+    const currentUserId = Number("{{ current_user.id }}");
+
+    // --------------------------------------------------
+    // ONLINE / OFFLINE STATUS
+    // --------------------------------------------------
 
     function updateUserStatus(userId, status) {
 
         const isOnline = status === "online";
 
-        const dot = document.getElementById("status-dot-" + userId);
-        const text = document.getElementById("status-text-" + userId);
+        const dot = document.getElementById(
+            "status-dot-" + userId
+        );
+
+        const text = document.getElementById(
+            "status-text-" + userId
+        );
+
         const conversationDot = document.getElementById(
             "conversation-dot-" + userId
         );
-        const conversationText = document.getElementById(
-            "conversation-status-" + userId
-        );
-        const lastSeen = document.getElementById("last-seen-" + userId);
 
         if (dot) {
             dot.className = "status-dot " +
@@ -281,38 +558,179 @@
             conversationDot.className = "status-dot " +
                 (isOnline ? "online" : "offline");
         }
-
-        if (conversationText) {
-            conversationText.textContent = isOnline ? "Online" : "Offline";
-        }
-
-        if (lastSeen && isOnline) {
-            lastSeen.textContent = "Currently online";
-        }
     }
+
 
     socket.on("connect", function () {
         socket.emit("request_online_users");
     });
 
+
     socket.on("online_users", function (data) {
 
-        const onlineIds = data.user_ids.map(Number);
+        const onlineIds = (data.user_ids || []).map(Number);
 
         document.querySelectorAll("[id^='status-dot-']").forEach(dot => {
+
             const userId = dot.id.replace("status-dot-", "");
 
             updateUserStatus(
                 userId,
-                onlineIds.includes(Number(userId)) ? "online" : "offline"
+                onlineIds.includes(Number(userId))
+                    ? "online"
+                    : "offline"
             );
+
         });
 
     });
 
+
     socket.on("user_status", function (data) {
         updateUserStatus(data.user_id, data.status);
     });
+
+
+    // --------------------------------------------------
+    // REAL-TIME CONVERSATION LIST UPDATE
+    // --------------------------------------------------
+
+    function formatMessageTime(value) {
+
+        if (!value) return "";
+
+        let date = new Date(value);
+
+        if (isNaN(date.getTime())) {
+            return "";
+        }
+
+        return date.toLocaleTimeString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+        });
+    }
+
+
+    function updateConversationList(data) {
+
+        const conversationId = Number(data.conversation_id);
+
+        if (!conversationId) return;
+
+        const conversation = document.getElementById(
+            "conversation-" + conversationId
+        );
+
+        // The conversation must already exist in this user's list.
+        if (!conversation) return;
+
+        const preview = conversation.querySelector(".last-message");
+        const time = conversation.querySelector(".conversation-time");
+        const badge = conversation.querySelector(".unread-badge");
+
+        // Update latest message preview.
+        if (preview) {
+            preview.textContent =
+                data.last_message || "New message";
+        }
+
+        // Update message time.
+        if (time) {
+            time.textContent = formatMessageTime(
+                data.last_message_at
+            );
+        }
+
+        // Increase unread count only for messages sent by others.
+        if (Number(data.sender_id) !== currentUserId) {
+
+            if (badge) {
+
+                let count = Number(badge.textContent.trim()) || 0;
+
+                count += 1;
+
+                badge.textContent = count;
+                badge.hidden = false;
+            }
+
+            conversation.classList.add("has-unread");
+        }
+
+        // Move this conversation to the top.
+        const list = document.getElementById("conversationList");
+
+        if (list && list.firstElementChild !== conversation) {
+            list.prepend(conversation);
+        }
+
+        // Keep the search filter working.
+        const searchValue = document.getElementById(
+            "sidebarChatSearch"
+        ).value;
+
+        if (searchValue) {
+            filterChatItems(searchValue);
+        }
+    }
+
+
+    socket.on("conversation_list_update", function (data) {
+        updateConversationList(data);
+    });
+
+
+    // --------------------------------------------------
+    // SEARCH CONVERSATIONS AND PEOPLE
+    // --------------------------------------------------
+
+    function filterChatItems(searchValue) {
+
+        const search = searchValue.toLowerCase().trim();
+
+        document.querySelectorAll(".searchable-item").forEach(item => {
+
+            const itemText = item.dataset.search || "";
+
+            item.style.display = itemText.includes(search)
+                ? "flex"
+                : "none";
+
+        });
+
+    }
+
+
+    document.getElementById("sidebarChatSearch").addEventListener(
+        "input",
+        function () {
+
+            filterChatItems(this.value);
+
+            document.getElementById(
+                "globalChatSearch"
+            ).value = this.value;
+
+        }
+    );
+
+
+    document.getElementById("globalChatSearch").addEventListener(
+        "input",
+        function () {
+
+            filterChatItems(this.value);
+
+            document.getElementById(
+                "sidebarChatSearch"
+            ).value = this.value;
+
+        }
+    );
+
 </script>
 
 </body>

@@ -1,8 +1,8 @@
- 
+
 import os
 
-from flask import Flask, redirect, url_for
-from flask_login import current_user
+from flask import Flask, redirect, url_for, render_template
+from flask_login import current_user,login_required
 
 from config import Config
 from extensions import (
@@ -16,11 +16,18 @@ from extensions import (
 
 
 def create_app():
+
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Create upload directories
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    # --------------------------------------------------
+    # CREATE UPLOAD DIRECTORIES
+    # --------------------------------------------------
+
+    os.makedirs(
+        app.config["UPLOAD_FOLDER"],
+        exist_ok=True
+    )
 
     for folder in [
         "email_attachments",
@@ -28,11 +35,17 @@ def create_app():
         "profiles"
     ]:
         os.makedirs(
-            os.path.join(app.config["UPLOAD_FOLDER"], folder),
+            os.path.join(
+                app.config["UPLOAD_FOLDER"],
+                folder
+            ),
             exist_ok=True
         )
 
-    # Initialize Flask extensions
+    # --------------------------------------------------
+    # INITIALIZE FLASK EXTENSIONS
+    # --------------------------------------------------
+
     db.init_app(app)
     login_manager.init_app(app)
     socketio.init_app(app)
@@ -44,56 +57,77 @@ def create_app():
     login_manager.login_message = "Please log in first."
     login_manager.login_message_category = "warning"
 
-    # Import authentication models
+    # --------------------------------------------------
+    # IMPORT DATABASE MODELS
+    # --------------------------------------------------
+
     from auth_module.models import User, UserProfile
 
-    # Import email models
-    from email_module.models import Email, EmailAttachment
+    from email_module.models import (
+        Email,
+        EmailAttachment
+    )
 
-    # Import chat models
     from chat_module.models import (
         Conversation,
         ConversationMember,
         ChatMessage
     )
 
-    # Import notification models
     from notification_module.models import Notification
 
-    # Register authentication module
+    # --------------------------------------------------
+    # REGISTER BLUEPRINTS
+    # --------------------------------------------------
+
+    # Authentication
     from auth_module import auth_bp
     app.register_blueprint(auth_bp)
 
-    # Register email module
+    # Email
     from email_module import email_bp
     app.register_blueprint(email_bp)
 
-    # Register chat module
+    # Chat
     from chat_module import chat_bp
     app.register_blueprint(chat_bp)
 
-    # Register notification module
+    # Notifications
     from notification_module import notification_bp
     app.register_blueprint(notification_bp)
 
-    # Register real-time Socket.IO events
+    # --------------------------------------------------
+    # REGISTER SOCKET.IO EVENTS
+    # --------------------------------------------------
+
     import chat_module.events
 
-    # Home page
+    # --------------------------------------------------
+    # HOME PAGE
+    # --------------------------------------------------
+
     @app.route("/")
     def home():
+
         if current_user.is_authenticated:
-            return redirect(url_for("dashboard"))
+            return redirect(
+                url_for("dashboard")
+            )
 
-        return redirect(url_for("auth.login"))
+        return redirect(
+            url_for("auth.login")
+        )
 
+    # --------------------------------------------------
+    # DASHBOARD
+    # --------------------------------------------------
+
+    
     # Dashboard
     @app.route("/dashboard")
+    @login_required
     def dashboard():
-        if not current_user.is_authenticated:
-            return redirect(url_for("auth.login"))
 
-        # Get unread notification count
         unread_notifications = Notification.query.filter_by(
             recipient_id=current_user.id,
             is_read=False
@@ -105,156 +139,321 @@ def create_app():
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-
             <title>ConnectHub Dashboard</title>
 
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-                  rel="stylesheet">
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
             <style>
+                * {{
+                    box-sizing: border-box;
+                }}
+
                 body {{
-                    background: #f1f5f9;
-                    font-family: Arial, sans-serif;
+                    margin: 0;
+                    background: #f7f6fd;
+                    font-family: "Segoe UI", Arial, sans-serif;
+                    color: #302b50;
                 }}
 
-                .dashboard-card {{
-                    background: white;
-                    border-radius: 15px;
-                    padding: 30px;
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+                .main-container {{
+                    max-width: 1250px;
+                    margin: auto;
+                    padding: 25px 35px;
                 }}
 
-                .section-title {{
-                    font-weight: 600;
-                    margin-bottom: 15px;
+                .topbar {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 35px;
                 }}
 
-                .feature-button {{
-                    min-width: 130px;
+                .brand {{
+                    font-size: 25px;
+                    font-weight: 750;
+                    color: #302b50;
                 }}
 
-                .notification-button {{
+                .profile-area {{
+                    display: flex;
+                    align-items: center;
+                    gap: 18px;
+                }}
+
+                .notification-link {{
                     position: relative;
+                    color: #6254c7;
+                    font-size: 23px;
+                    text-decoration: none;
+                    padding: 8px;
                 }}
 
                 .notification-badge {{
                     position: absolute;
-                    top: -10px;
-                    right: -10px;
-                    background: #dc3545;
+                    top: 0;
+                    right: -2px;
+                    background: #ef476f;
                     color: white;
-                    border-radius: 50px;
-                    min-width: 23px;
-                    height: 23px;
-                    padding: 2px 6px;
-                    font-size: 12px;
-                    font-weight: bold;
+                    font-size: 10px;
+                    min-width: 18px;
+                    height: 18px;
+                    border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                }}
+
+                .profile {{
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    background: white;
+                    border: 1px solid #eeecf5;
+                    border-radius: 30px;
+                    padding: 9px 16px;
+                    color: #6254a3;
+                    font-size: 13px;
+                }}
+
+                .profile-icon {{
+                    width: 34px;
+                    height: 34px;
+                    border-radius: 50%;
+                    background: #7969dc;
+                    color: white;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: bold;
+                }}
+
+                .welcome {{
+                    background: linear-gradient(110deg, #7665d9, #9989ed);
+                    color: white;
+                    padding: 38px;
+                    border-radius: 22px;
+                    margin-bottom: 35px;
+                    box-shadow: 0 10px 25px rgba(100, 80, 190, 0.12);
+                }}
+
+                .welcome h1 {{
+                    font-size: 30px;
+                    font-weight: 750;
+                    margin-bottom: 10px;
+                }}
+
+                .welcome p {{
+                    margin: 0;
+                    font-size: 14px;
+                    opacity: 0.95;
+                }}
+
+                .section-heading {{
+                    font-size: 19px;
+                    font-weight: 700;
+                    margin-bottom: 18px;
+                }}
+
+                .workspace-card {{
+                    background: white;
+                    border: 1px solid #eeecf5;
+                    border-radius: 20px;
+                    padding: 28px;
+                    min-height: 205px;
+                    height: 100%;
+                    text-decoration: none;
+                    color: inherit;
+                    display: block;
+                    transition: 0.2s ease;
+                }}
+
+                .workspace-card:hover {{
+                    transform: translateY(-4px);
+                    border-color: #c9bfff;
+                    box-shadow: 0 10px 25px rgba(80, 65, 140, 0.09);
+                    color: inherit;
+                }}
+
+                .workspace-icon {{
+                    width: 55px;
+                    height: 55px;
+                    border-radius: 16px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 25px;
+                    margin-bottom: 20px;
+                }}
+
+                .email-icon {{
+                    background: #efedff;
+                    color: #7665d9;
+                }}
+
+                .chat-icon {{
+                    background: #e5f7f2;
+                    color: #229d82;
+                }}
+
+                .workspace-card h5 {{
+                    font-weight: 700;
+                    font-size: 17px;
+                    margin-bottom: 9px;
+                }}
+
+                .workspace-card p {{
+                    color: #89869f;
+                    font-size: 13px;
+                    line-height: 1.7;
+                    margin-bottom: 0;
+                }}
+
+                .footer {{
+                    text-align: center;
+                    color: #9994b0;
+                    font-size: 12px;
+                    margin-top: 50px;
+                }}
+
+                .logout-link {{
+                    color: #7665d9;
+                    text-decoration: none;
+                    font-size: 13px;
+                    margin-left: 12px;
+                }}
+
+                @media (max-width: 600px) {{
+                    .main-container {{
+                        padding: 18px;
+                    }}
+
+                    .welcome {{
+                        padding: 27px 22px;
+                    }}
+
+                    .welcome h1 {{
+                        font-size: 24px;
+                    }}
+
+                    .profile {{
+                        padding: 7px;
+                    }}
+
+                    .profile-email {{
+                        display: none;
+                    }}
+
+                    .topbar {{
+                        margin-bottom: 25px;
+                    }}
                 }}
             </style>
         </head>
 
         <body>
 
-            <div class="container py-5">
+            <div class="main-container">
 
-                <div class="dashboard-card">
+                <header class="topbar">
 
-                    <h1>Welcome to ConnectHub, {current_user.username}!</h1>
-
-                    <p class="text-muted">
-                        Your Email and Real-Time Chat Application
-                    </p>
-
-                    <hr>
-
-                    <h5 class="section-title">Email Management</h5>
-
-                    <div class="d-flex flex-wrap gap-2 mb-4">
-
-                        <a href="/email/"
-                           class="btn btn-primary feature-button">
-                            Inbox
-                        </a>
-
-                        <a href="/email/sent"
-                           class="btn btn-secondary feature-button">
-                            Sent
-                        </a>
-
-                        <a href="/email/drafts"
-                           class="btn btn-info feature-button">
-                            Drafts
-                        </a>
-
-                        <a href="/email/compose"
-                           class="btn btn-success feature-button">
-                            Compose Email
-                        </a>
-
-                        <a href="/email/trash"
-                           class="btn btn-danger feature-button">
-                            Trash
-                        </a>
-
-                        <a href="/email/starred"
-                           class="btn btn-warning feature-button">
-                            Starred
-                        </a>
-
-                        <a href="/email/important"
-                           class="btn btn-dark feature-button">
-                            Important
-                        </a>
-
+                    <div class="brand">
+                        <i class="bi bi-chat-square-heart-fill me-2"
+                           style="color:#7665d9;"></i>
+                        ConnectHub
                     </div>
 
-                    <hr>
-
-                    <h5 class="section-title">Chat Management</h5>
-
-                    <div class="d-flex flex-wrap gap-2 mb-4">
-
-                        <a href="/chat/"
-                           class="btn btn-dark feature-button">
-                            Open Chat
-                        </a>
-
-                    </div>
-
-                    <hr>
-
-                    <h5 class="section-title">Notifications</h5>
-
-                    <div class="d-flex flex-wrap gap-2 mb-4">
+                    <div class="profile-area">
 
                         <a href="/notifications/"
-                           class="btn btn-warning feature-button notification-button">
-                            <span>Notifications</span>
+                           class="notification-link"
+                           title="Notifications">
+
+                            <i class="bi bi-bell-fill"></i>
 
                             {f'<span class="notification-badge">{unread_notifications}</span>' if unread_notifications > 0 else ''}
 
                         </a>
 
-                    </div>
+                        <div class="profile">
 
-                    <hr>
+                            <div class="profile-icon">
+                                {current_user.username[0].upper()}
+                            </div>
 
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <span class="profile-email">
+                                {current_user.email}
+                            </span>
 
-                        <span class="text-muted">
-                            Logged in as {current_user.email}
-                        </span>
+                        </div>
 
                         <a href="/auth/logout"
-                           class="btn btn-outline-danger">
-                            Logout
+                           class="logout-link"
+                           title="Logout">
+                            <i class="bi bi-box-arrow-right"></i>
                         </a>
 
                     </div>
 
+                </header>
+
+                <section class="welcome">
+
+                    <h1>Welcome back, {current_user.username}!</h1>
+
+                    <p>
+                        Your Email and Real-Time Chat Application.
+                        Stay connected with everyone in one place.
+                    </p>
+
+                </section>
+
+                <h5 class="section-heading">Your Workspaces</h5>
+
+                <div class="row g-4">
+
+                    <div class="col-md-6">
+
+                        <a href="/email/" class="workspace-card">
+
+                            <div class="workspace-icon email-icon">
+                                <i class="bi bi-envelope-fill"></i>
+                            </div>
+
+                            <h5>Email Management</h5>
+
+                            <p>
+                                Send and receive emails, manage your inbox,
+                                organize drafts and access important messages.
+                            </p>
+
+                        </a>
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <a href="/chat/" class="workspace-card">
+
+                            <div class="workspace-icon chat-icon">
+                                <i class="bi bi-chat-dots-fill"></i>
+                            </div>
+
+                            <h5>Real-Time Chat</h5>
+
+                            <p>
+                                Start private conversations, create groups,
+                                share files and communicate in real time.
+                            </p>
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+                <div class="footer">
+                    ConnectHub · Your communication workspace
                 </div>
 
             </div>
@@ -263,17 +462,31 @@ def create_app():
         </html>
         """
 
-    # Create database tables
+
+
+    # --------------------------------------------------
+    # CREATE DATABASE TABLES
+    # --------------------------------------------------
+
     with app.app_context():
         db.create_all()
 
     return app
 
 
+# --------------------------------------------------
+# CREATE FLASK APPLICATION
+# --------------------------------------------------
+
 app = create_app()
 
 
+# --------------------------------------------------
+# RUN APPLICATION
+# --------------------------------------------------
+
 if __name__ == "__main__":
+
     socketio.run(
         app,
         host="0.0.0.0",
