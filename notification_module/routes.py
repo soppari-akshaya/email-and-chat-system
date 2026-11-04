@@ -56,9 +56,9 @@ def mark_all_read():
     return redirect(url_for("notification.index"))
 
 
-# --------------------------------------------------
+
 # WEB PUSH & DESKTOP NOTIFICATION ENDPOINTS
-# --------------------------------------------------
+
 
 @notification_bp.route("/vapid-public-key", methods=["GET"])
 def vapid_public_key():

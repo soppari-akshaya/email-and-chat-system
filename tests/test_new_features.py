@@ -200,3 +200,81 @@ def test_theme_toggle_single_top_header(test_client):
     res_forgot = test_client.get("/auth/forgot-password")
     assert b"themeToggleBtn" not in res_forgot.data
 
+def test_redesigned_login_split_card_layout(test_client):
+    res = test_client.get("/auth/login")
+    assert res.status_code == 200
+    html = res.data.decode("utf-8")
+
+    # Single card split into two halves
+    assert "login-split-card" in html
+    assert "login-intro-half" in html
+    assert "login-form-half" in html
+
+    # Branding & Main Heading
+    assert "ConnectHub" in html
+    assert "One Platform. All Your Conversations." in html
+    assert "ConnectHub brings email communication and real-time messaging together" in html
+
+    # 4 Feature highlights
+    assert "Smart Email Management" in html
+    assert "Real-Time Messaging" in html
+    assert "Seamless Collaboration" in html
+    assert "Secure User Access" in html
+
+    # Right half: Login Form Elements
+    assert "Welcome Back!" in html
+    assert "Sign in to continue to your ConnectHub workspace." in html
+    assert 'name="email"' in html
+    assert 'name="password"' in html
+    assert "togglePasswordVisibility" in html
+    assert 'id="togglePasswordBtn"' in html
+    assert 'name="remember"' in html
+    assert "Forgot Password?" in html
+    assert "btnGoogleAuth" in html
+    assert "Continue with Google" in html
+    assert "Create an account" in html
+
+    # Test login submission with valid user
+    user = User.query.filter_by(email="themeuser@test.com").first()
+    if not user:
+        user = User(username="splituser", email="splituser@test.com", is_active=True)
+        user.set_password("SecurePassword123!")
+        profile = UserProfile(user=user)
+        db.session.add(user)
+        db.session.add(profile)
+        db.session.commit()
+
+    login_res = test_client.post("/auth/login", data={"email": user.email, "password": "SecurePassword123!"}, follow_redirects=True)
+    assert login_res.status_code == 200
+    assert b"Dashboard" in login_res.data or b"ConnectHub" in login_res.data
+
+def test_theme_consistency_css_and_pages(test_client):
+    # CSS rules verification
+    res_css = test_client.get("/static/css/style.css")
+    assert res_css.status_code == 200
+    css_text = res_css.data.decode("utf-8")
+
+    # Dark mode global overrides exist
+    assert '[data-theme="dark"]' in css_text
+    assert '[data-theme="dark"] .text-dark' in css_text
+    assert '[data-theme="dark"] .chat-inbox-wrapper' in css_text
+    assert '[data-theme="dark"] .chat-sidebar-pane' in css_text
+    assert '[data-theme="dark"] .chat-main-pane' in css_text
+    assert '[data-theme="dark"] .msg-bubble.theirs' in css_text
+    assert '[data-theme="dark"] .list-group-item' in css_text
+
+    # Log in and verify chat, notifications, sent emails, inbox, profile
+    user = User(username="consistentuser", email="consistentuser@test.com", is_active=True)
+    user.set_password("SecurePassword123!")
+    profile = UserProfile(user=user)
+    db.session.add(user)
+    db.session.add(profile)
+    db.session.commit()
+
+    test_client.post("/auth/login", data={"email": "consistentuser@test.com", "password": "SecurePassword123!"}, follow_redirects=True)
+
+    for path in ["/chat/", "/notifications/", "/email/sent", "/email/inbox", "/auth/profile"]:
+        res_page = test_client.get(path)
+        assert res_page.status_code == 200, f"Page {path} returned {res_page.status_code}"
+
+
