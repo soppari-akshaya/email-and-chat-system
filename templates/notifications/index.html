@@ -55,8 +55,12 @@
 
                         <div class="d-flex align-items-center gap-2">
                             {% if notif.conversation_id %}
-                                <a href="{{ url_for('chat.group_chat', conversation_id=notif.conversation_id) }}" class="btn btn-sm btn-primary py-1 px-2" style="font-size: 12px;">
+                                <a href="{{ url_for('chat.view_conversation', conversation_id=notif.conversation_id, notif_id=notif.id) }}" class="btn btn-sm btn-primary py-1 px-2" style="font-size: 12px;">
                                     Open Chat
+                                </a>
+                            {% elif notif.message and 'email' in notif.message.lower() %}
+                                <a href="{{ url_for('email.inbox') }}" class="btn btn-sm btn-outline-primary py-1 px-2" style="font-size: 12px;">
+                                    View Email
                                 </a>
                             {% endif %}
 

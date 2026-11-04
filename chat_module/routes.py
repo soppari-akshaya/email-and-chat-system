@@ -780,10 +780,21 @@ def download_transcript(conversation_id):
 @chat_bp.route("/conversation/<int:conversation_id>")
 @login_required
 def view_conversation(conversation_id):
-    conversation = Conversation.query.get_or_404(conversation_id)
+    conversation = Conversation.query.get(conversation_id)
+    if not conversation:
+        flash("This conversation is no longer available.", "warning")
+        return redirect(url_for("chat.index"))
 
     if not is_member(conversation_id, current_user.id):
-        abort(403)
+        flash("You are not authorized to access this conversation.", "danger")
+        return redirect(url_for("chat.index"))
+
+    notif_id = request.args.get("notif_id", type=int)
+    if notif_id:
+        notif = Notification.query.filter_by(id=notif_id, recipient_id=current_user.id).first()
+        if notif and not notif.is_read:
+            notif.is_read = True
+            db.session.commit()
 
     if conversation.is_group:
         return redirect(url_for("chat.group_chat", conversation_id=conversation.id))
@@ -794,8 +805,14 @@ def view_conversation(conversation_id):
     ).first()
 
     if other_member:
-        return redirect(url_for("chat.private_chat", user_id=other_member.user_id))
+        other_user = User.query.filter_by(id=other_member.user_id, is_active=True).first()
+        if other_user:
+            return redirect(url_for("chat.private_chat", user_id=other_member.user_id))
+        else:
+            flash("The other participant in this conversation is no longer active.", "warning")
+            return redirect(url_for("chat.index"))
 
+    flash("Conversation participant could not be found.", "warning")
     return redirect(url_for("chat.index"))
 
 
