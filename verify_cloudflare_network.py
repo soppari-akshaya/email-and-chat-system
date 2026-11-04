@@ -113,17 +113,17 @@ def test_cloudflare_and_network():
         print(f"   Socket.IO handshake error: {e}")
         return False
 
-    # 5. Simulate Multi-Device Cross-Network Session (Device A = Alice, Device B = Bob)
+    # 5. Simulate Multi-Device Cross-Network Session (Device A = A, Device B = B)
     print("\n5. Testing Multi-User Cross-Network Communication:")
     session_a = requests.Session() # Device A (Alice, Network A)
     session_b = requests.Session() # Device B (Bob, Network B)
 
-    # Alice fetches login page for CSRF token
+    # A fetches login page for CSRF token
     get_a = session_a.get(f"{public_url}/auth/login")
     match_a = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', get_a.text)
     csrf_a = match_a.group(1) if match_a else ""
 
-    # Alice logs in
+    # A logs in
     login_a = session_a.post(
         f"{public_url}/auth/login",
         data={"csrf_token": csrf_a, "email": "alice@connecthub.com", "password": "AlicePass123!"},
@@ -140,12 +140,12 @@ def test_cloudflare_and_network():
     assert "dashboard" in login_a.url.lower() or "alice" in login_a.text.lower()
     print("   [PASS] Alice successfully logged in over Cloudflare Tunnel!")
 
-    # Bob fetches login page for CSRF token
+    # B fetches login page for CSRF token
     get_b = session_b.get(f"{public_url}/auth/login")
     match_b = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', get_b.text)
     csrf_b = match_b.group(1) if match_b else ""
 
-    # Bob logs in
+    # B logs in
     login_b = session_b.post(
         f"{public_url}/auth/login",
         data={"csrf_token": csrf_b, "email": "bob@connecthub.com", "password": "BobPass123!"},
@@ -209,7 +209,7 @@ def test_cloudflare_and_network():
     conv_id = int(conv_match.group(1))
     print(f"   Active conversation ID: {conv_id}")
 
-    # Bob opens the same conversation from Device B
+    # B opens the same conversation from Device B
     bob_chat = session_b.get(f"{public_url}/chat/conversation/{conv_id}", allow_redirects=True)
     print(f"   Bob opened conversation {conv_id}: status {bob_chat.status_code}")
     assert bob_chat.status_code == 200
