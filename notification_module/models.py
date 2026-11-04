@@ -39,6 +39,16 @@ class Notification(db.Model):
         default=lambda: datetime.now(timezone.utc)
     )
 
+    @property
+    def created_at_iso(self):
+        if self.created_at is None:
+            return ""
+        if self.created_at.tzinfo is None:
+            dt = self.created_at.replace(tzinfo=timezone.utc)
+        else:
+            dt = self.created_at.astimezone(timezone.utc)
+        return dt.isoformat()
+
     sender = db.relationship("User", foreign_keys=[sender_id])
 
 
@@ -62,5 +72,15 @@ class PushSubscription(db.Model):
         db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
     )
+
+    @property
+    def created_at_iso(self):
+        if self.created_at is None:
+            return ""
+        if self.created_at.tzinfo is None:
+            dt = self.created_at.replace(tzinfo=timezone.utc)
+        else:
+            dt = self.created_at.astimezone(timezone.utc)
+        return dt.isoformat()
 
     user = db.relationship("User", backref=db.backref("push_subscriptions", cascade="all, delete-orphan", lazy="dynamic"))

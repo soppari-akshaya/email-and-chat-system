@@ -142,7 +142,7 @@
 
             <div class="text-muted small text-md-end">
                 <i class="bi bi-clock me-1"></i>
-                {{ email.created_at.strftime('%A, %d %B %Y at %I:%M %p') if email.created_at else '' }}
+                <span class="mail-detail-time" data-utc="{{ email.sent_at_iso or email.created_at_iso }}">{{ email.sent_at.strftime('%A, %d %B %Y at %I:%M %p') if email.sent_at else (email.created_at.strftime('%A, %d %B %Y at %I:%M %p') if email.created_at else '') }}</span>
             </div>
         </div>
 

@@ -465,7 +465,11 @@
                             <span class="text-muted small text-truncate d-none d-md-inline">- ${email.body_preview}</span>
                         </div>
                     </td>
-                    <td class="text-end text-muted small">${email.created_at}</td>
+                    <td class="text-end text-muted small text-nowrap">
+                        <span class="mail-time" data-utc="${email.created_at_iso || email.created_at}">
+                            ${(window.ConnectHubTime && window.ConnectHubTime.formatMailListTime(email.created_at_iso || email.created_at)) || email.created_at}
+                        </span>
+                    </td>
                     <td class="text-center" onclick="event.stopPropagation();">
                         <span class="badge bg-success-subtle text-success">New</span>
                     </td>
@@ -539,6 +543,9 @@
 
 <!-- ConnectHub Theme Switcher -->
 <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+
+<!-- ConnectHub Universal Local Time Formatter -->
+<script src="{{ url_for('static', filename='js/time.js') }}"></script>
 
 <!-- ConnectHub Desktop Notifications -->
 <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>

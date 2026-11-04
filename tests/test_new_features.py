@@ -3,6 +3,7 @@ from app import create_app
 from extensions import db
 from auth_module.models import User, UserProfile
 from notification_module.models import PushSubscription, Notification
+from email_module.models import Email
 
 @pytest.fixture
 def test_client():
@@ -276,5 +277,55 @@ def test_theme_consistency_css_and_pages(test_client):
     for path in ["/chat/", "/notifications/", "/email/sent", "/email/inbox", "/auth/profile"]:
         res_page = test_client.get(path)
         assert res_page.status_code == 200, f"Page {path} returned {res_page.status_code}"
+
+def test_exact_email_timestamps(test_client):
+    # 1. time.js asset is served
+    res_time_js = test_client.get("/static/js/time.js")
+    assert res_time_js.status_code == 200
+    assert b"ConnectHubTime" in res_time_js.data
+    assert b"formatMailListTime" in res_time_js.data
+
+    # 2. Create users and an email to test ISO property and template data-utc attributes
+    u1 = User(username="senderuser", email="senderuser@test.com", is_active=True)
+    u1.set_password("SecurePassword123!")
+    p1 = UserProfile(user=u1)
+
+    u2 = User(username="recipientuser", email="recipientuser@test.com", is_active=True)
+    u2.set_password("SecurePassword123!")
+    p2 = UserProfile(user=u2)
+
+    db.session.add_all([u1, p1, u2, p2])
+    db.session.commit()
+
+    mail = Email(
+        sender_id=u1.id,
+        recipient_id=u2.id,
+        subject="Exact Time Check",
+        body="Checking accurate timezone representation.",
+        folder="inbox"
+    )
+    db.session.add(mail)
+    db.session.commit()
+
+    # 3. Model property returns non-empty ISO format
+    assert mail.created_at_iso != ""
+    assert "T" in mail.created_at_iso
+    assert mail.sent_at_iso != ""
+
+    # 4. Recipient views inbox -> contains data-utc
+    test_client.post("/auth/login", data={"email": "recipientuser@test.com", "password": "SecurePassword123!"}, follow_redirects=True)
+    res_inbox = test_client.get("/email/inbox")
+    assert res_inbox.status_code == 200
+    inbox_html = res_inbox.data.decode("utf-8")
+    assert 'class="mail-time"' in inbox_html
+    assert f'data-utc="{mail.created_at_iso}"' in inbox_html
+
+    # 5. View email detail page -> contains mail-detail-time and data-utc
+    res_view = test_client.get(f"/email/view/{mail.id}")
+    assert res_view.status_code == 200
+    view_html = res_view.data.decode("utf-8")
+    assert 'class="mail-detail-time"' in view_html
+    assert 'data-utc=' in view_html
+
 
 

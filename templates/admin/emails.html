@@ -85,7 +85,7 @@
                                 {% endif %}
                             </td>
                             <td class="small text-muted text-nowrap">
-                                {{ m.created_at.strftime('%d %b %Y, %I:%M %p') if m.created_at else '' }}
+                                <span class="mail-time" data-utc="{{ m.created_at_iso }}">{{ m.created_at.strftime('%d %b %Y, %I:%M %p') if m.created_at else '' }}</span>
                             </td>
                             <td class="text-center">
                                 <form method="POST" action="{{ url_for('admin.delete_email', email_id=m.id) }}" class="d-inline"

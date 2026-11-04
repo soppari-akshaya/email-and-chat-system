@@ -45,7 +45,7 @@
                                     {{ notif.message }}
                                 </div>
                                 <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 11.5px;">
-                                    <span><i class="bi bi-clock me-1"></i>{{ notif.created_at.strftime('%d %b %Y, %I:%M %p') if notif.created_at else '' }}</span>
+                                    <span><i class="bi bi-clock me-1"></i><span class="notif-time" data-utc="{{ notif.created_at_iso }}">{{ notif.created_at.strftime('%d %b %Y, %I:%M %p') if notif.created_at else '' }}</span></span>
                                     {% if not notif.is_read %}
                                         <span class="badge bg-danger" style="font-size: 9px;">UNREAD</span>
                                     {% endif %}

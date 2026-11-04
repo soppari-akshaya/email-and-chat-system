@@ -192,7 +192,8 @@ def send_email(sender, recipient_email, subject, body, attachment_files=None, la
                 "subject": inbox_email.subject,
                 "body_preview": (inbox_email.body or "")[:80],
                 "label": inbox_email.label,
-                "created_at": inbox_email.created_at.strftime("%I:%M %p") if inbox_email.created_at else "Just now",
+                "created_at": inbox_email.created_at_iso or (inbox_email.created_at.strftime("%I:%M %p") if inbox_email.created_at else "Just now"),
+                "created_at_iso": inbox_email.created_at_iso,
                 "has_attachments": bool(attachment_files)
             },
             to=f"user_{recipient.id}"

@@ -90,7 +90,7 @@
                                 </td>
 
                                 <td class="text-end text-muted small text-nowrap">
-                                    {{ email.created_at.strftime('%d %b, %I:%M %p') if email.created_at else '' }}
+                                    <span class="mail-time" data-utc="{{ email.created_at_iso }}">{{ email.created_at.strftime('%d %b, %I:%M %p') if email.created_at else '' }}</span>
                                 </td>
 
                                 <td class="text-center" onclick="event.stopPropagation();">
